@@ -13,9 +13,9 @@ FROM mcr.microsoft.com/playwright/python:v1.49.1-noble
 # package lists it couldn't resolve. Fetching one HTTPS tarball needs only curl and tar, both
 # already present, and sidesteps apt entirely for this step.
 ENV NODE_VERSION=20.18.1
-RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz \
-    && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
-    && rm /tmp/node.tar.xz \
+RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" -o /tmp/node.tar.gz \
+    && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1 \
+    && rm /tmp/node.tar.gz \
     && node --version && npm --version
 
 WORKDIR /app
