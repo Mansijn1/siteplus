@@ -26,11 +26,23 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN mkdir -p storage/screenshots storage/lighthouse
 
-# LIGHTHOUSE_CHROME_PATH is intentionally NOT set here — config.py asks Playwright directly for
-# its installed Chromium's executable_path at startup, so Lighthouse always reuses the exact
-# browser this image's pinned Playwright version actually installed, rather than a hardcoded
-# path/revision guess that could drift or be wrong for this platform.
+# LIGHTHOUSE_CHROME_PATH is resolved here, in a plain shell script run before uvicorn starts,
+# rather than inside config.py's own `sync_playwright()` call at Python import time: that
+# in-process call returned None on the live container (silently swallowed by its try/except),
+# because it's racing uvicorn's own event loop startup — Playwright's sync API refuses to run
+# from a thread that already has (or is about to have) an asyncio loop. A separate shell
+# process has no event loop at all, so the same Playwright query is unambiguous here.
+RUN cat <<'EOF' > /app/entrypoint.sh
+#!/bin/sh
+set -e
+if [ -z "$LIGHTHOUSE_CHROME_PATH" ]; then
+    export LIGHTHOUSE_CHROME_PATH="$(python -c 'from playwright.sync_api import sync_playwright; p = sync_playwright().start(); print(p.chromium.executable_path)')"
+fi
+echo "Resolved LIGHTHOUSE_CHROME_PATH=$LIGHTHOUSE_CHROME_PATH"
+exec uvicorn main:app --host 0.0.0.0 --port 8000
+EOF
+RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/entrypoint.sh"]
