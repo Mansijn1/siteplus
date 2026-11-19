@@ -20,7 +20,11 @@ class Settings(BaseSettings):
     # Scan limits — bound every external call so one hostile or broken target can't hang a
     # worker indefinitely or exhaust disk/memory.
     navigation_timeout_ms: int = 30_000
-    lighthouse_timeout_s: int = 90
+    # Generous on purpose: verified live on Render's free tier that a real Lighthouse run can
+    # take well over 90s under its shared, limited CPU (90s timed out there; the browser scan
+    # itself — screenshots, extraction — completed fine in the same window). This still fails
+    # closed to available=false on a genuinely hung process, just with more realistic headroom.
+    lighthouse_timeout_s: int = 170
     max_response_body_bytes: int = 15 * 1024 * 1024  # 15 MB cap on the main document response
     max_concurrent_scans: int = 3
 
