@@ -93,10 +93,10 @@ async def _run_pipeline(record: ScanRecord, url: str) -> None:
             extracted = _build_extracted_data(nav_result, url)
 
             lighthouse: dict[str, LighthouseRun] = {}
-            if settings.enable_lighthouse:
+            if settings.lighthouse_enabled:
                 _set_stage(record, "lighthouse_desktop")
                 lighthouse["desktop"] = await run_lighthouse(nav_result.response_info.final_url or url, "desktop")
-                if settings.enable_mobile_lighthouse:
+                if settings.lighthouse_mobile_enabled:
                     _set_stage(record, "lighthouse_mobile")
                     lighthouse["mobile"] = await run_lighthouse(
                         nav_result.response_info.final_url or url, "mobile"

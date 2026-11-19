@@ -164,9 +164,15 @@ wasn't separately tested against a live site that reliably fails only Lighthouse
 - **In-memory scan store** — restarting the process loses all scan records (not results files
   on disk, just the ability to look them up by scan_id). Fine for this phase; would need Redis
   or a DB for anything long-lived.
-- **Dockerfile is untested in this environment** (no Docker available here) — the browser path
-  (`LIGHTHOUSE_CHROME_PATH`) assumes the same Chromium revision number as the local Windows
-  install; verify this once before a real deploy.
+- **Lighthouse is disabled by default in `config.py`** (`lighthouse_enabled`/
+  `lighthouse_mobile_enabled`) — confirmed live on Render's free tier (512MB RAM, shared with
+  the Python/uvicorn process) that Lighthouse's own separately-launched Chrome process reliably
+  OOM-restarts the whole container mid-scan, even after both fixing `LIGHTHOUSE_CHROME_PATH`
+  resolution (see the Dockerfile's `entrypoint.sh`) and trimming Chrome's launch flags for
+  memory. Screenshots, console/network capture, and SEO/content extraction are unaffected and
+  work reliably on the free tier — only Lighthouse needs more headroom. Set `LIGHTHOUSE_ENABLED`
+  and `LIGHTHOUSE_MOBILE_ENABLED` to `true` on a plan with more memory (Render's `starter` tier
+  or above) to turn it back on.
 - **Lighthouse requires Node.js in the runtime environment** — this is the one place the
   backend needs both language runtimes; the Dockerfile installs Node explicitly for this
   reason. A plain `pip install`-only deployment (no Docker, no Node) will run the browser scan

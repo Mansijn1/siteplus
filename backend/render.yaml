@@ -7,9 +7,17 @@ services:
     plan: starter
     healthCheckPath: /health
     envVars:
-      - key: ENABLE_LIGHTHOUSE
+      # Lighthouse defaults to disabled in config.py (its own Chrome process reliably OOM-
+      # restarts a free-tier 512MB container mid-scan) — only set these true on a plan with
+      # more memory headroom than `free`.
+      - key: LIGHTHOUSE_ENABLED
         value: "true"
-      - key: ENABLE_MOBILE_LIGHTHOUSE
+      - key: LIGHTHOUSE_MOBILE_ENABLED
         value: "true"
     # CORS origins are set in config.py, not here — update that file (and redeploy) if the
     # frontend's deployed URL changes, since it's never read from an env var at startup.
+    #
+    # The actual live deployment (webrate-ai-scanner, srv-dbveor3m8hqs739ph5hg) was created
+    # directly via `render services create`, not by syncing this file as a Blueprint — it's on
+    # the `free` plan, not `starter`. Edit the live service and redeploy for changes to take
+    # effect; this file is a reference/record, not the deploy source.

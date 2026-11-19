@@ -60,7 +60,7 @@ def _audit_metric(audits: dict, key: str) -> MetricResult:
 
 
 async def run_lighthouse(url: str, form_factor: str = "desktop") -> LighthouseRun:
-    if not settings.enable_lighthouse:
+    if not settings.lighthouse_enabled:
         return _unavailable(form_factor, "lighthouse_disabled")
     npx_path = _resolve_npx()
     if not npx_path:

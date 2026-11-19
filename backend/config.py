@@ -31,8 +31,15 @@ class Settings(BaseSettings):
     # Lighthouse. Set LIGHTHOUSE_CHROME_PATH to pin a specific Chrome/Chromium binary (e.g. the
     # one Playwright already downloaded) instead of letting chrome-launcher search the system.
     lighthouse_chrome_path: str | None = None
-    enable_lighthouse: bool = True
-    enable_mobile_lighthouse: bool = True
+    # Deliberately named so neither reads the ENABLE_LIGHTHOUSE / ENABLE_MOBILE_LIGHTHOUSE env
+    # vars already set on the live Render service (the CLI used to deploy it has no command to
+    # remove or edit a service's env vars after creation): Lighthouse's own Chrome process
+    # reliably OOM-restarts that service's free-tier 512MB container mid-scan, confirmed live
+    # even after trimming Chrome's flags — so this ships OFF there by default. Flip to True (and
+    # rename back to enable_lighthouse, or set LIGHTHOUSE_ENABLED=true) once the plan has more
+    # headroom, or run locally where this isn't a constraint.
+    lighthouse_enabled: bool = False
+    lighthouse_mobile_enabled: bool = False
 
     screenshot_dir: Path = BACKEND_ROOT / "storage" / "screenshots"
     lighthouse_dir: Path = BACKEND_ROOT / "storage" / "lighthouse"
