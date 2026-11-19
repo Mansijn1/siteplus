@@ -68,7 +68,15 @@ async def run_lighthouse(url: str, form_factor: str = "desktop") -> LighthouseRu
 
     report_path = settings.lighthouse_dir / f"{uuid.uuid4().hex}-{form_factor}.json"
 
-    chrome_flags = "--headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage"
+    # Extra flags trim Chrome's memory footprint for Render's free tier (512MB total, shared with
+    # the Python/uvicorn process) — a plain headless launch was enough to OOM-restart the whole
+    # container mid-scan there, separate from (and after) the getDebuggableChrome fix.
+    chrome_flags = (
+        "--headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage "
+        "--disable-extensions --disable-background-networking --disable-sync --disable-translate "
+        "--disable-default-apps --no-first-run --mute-audio --disable-backgrounding-occluded-windows "
+        "--renderer-process-limit=1 --disable-ipc-flooding-protection"
+    )
     cmd = [
         npx_path,
         "--yes",
