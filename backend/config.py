@@ -37,6 +37,25 @@ class Settings(BaseSettings):
     mobile_viewport: tuple[int, int] = (390, 844)
 
 
+def _detect_chromium_path() -> str | None:
+    """Asks Playwright directly where it installed Chromium, rather than guessing a path and
+    browser-revision number that can silently drift out of date (or differ across platforms)
+    from whatever `playwright==X.Y.Z` in requirements.txt actually pins. This only queries
+    Playwright's driver for metadata — it does not launch a browser — and runs once at import
+    time, before uvicorn's event loop starts, so the sync API here is safe."""
+    try:
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as p:
+            path = p.chromium.executable_path
+            return path if path else None
+    except Exception:
+        return None
+
+
 settings = Settings()
 settings.screenshot_dir.mkdir(parents=True, exist_ok=True)
 settings.lighthouse_dir.mkdir(parents=True, exist_ok=True)
+
+if not settings.lighthouse_chrome_path:
+    settings.lighthouse_chrome_path = _detect_chromium_path()

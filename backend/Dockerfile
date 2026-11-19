@@ -6,10 +6,17 @@ FROM mcr.microsoft.com/playwright/python:v1.49.1-noble
 
 # Lighthouse runs as a Node CLI (via `npx lighthouse`) even though the rest of the backend is
 # Python — this is the one place the two runtimes have to coexist in the same container.
-RUN apt-get update && apt-get install -y --no-install-recommends curl gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
+#
+# Installed from the official prebuilt tarball rather than apt + nodesource's GPG-keyed repo:
+# that path pulls in gnupg/dirmngr and their dependency chain, which failed a real build here
+# when the build network couldn't reach archive.ubuntu.com over IPv6, leaving apt with broken
+# package lists it couldn't resolve. Fetching one HTTPS tarball needs only curl and tar, both
+# already present, and sidesteps apt entirely for this step.
+ENV NODE_VERSION=20.18.1
+RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz \
+    && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
+    && rm /tmp/node.tar.xz \
+    && node --version && npm --version
 
 WORKDIR /app
 
@@ -19,9 +26,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN mkdir -p storage/screenshots storage/lighthouse
 
-# Point Lighthouse at the Chromium this base image already shipped, instead of letting
-# chrome-launcher search for (or try to download) its own copy.
-ENV LIGHTHOUSE_CHROME_PATH=/ms-playwright/chromium-1148/chrome-linux/chrome
+# LIGHTHOUSE_CHROME_PATH is intentionally NOT set here — config.py asks Playwright directly for
+# its installed Chromium's executable_path at startup, so Lighthouse always reuses the exact
+# browser this image's pinned Playwright version actually installed, rather than a hardcoded
+# path/revision guess that could drift or be wrong for this platform.
 
 EXPOSE 8000
 
