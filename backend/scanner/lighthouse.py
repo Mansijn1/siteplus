@@ -110,7 +110,13 @@ async def run_lighthouse(url: str, form_factor: str = "desktop") -> LighthouseRu
             return _unavailable(form_factor, "lighthouse_timeout")
 
         if proc.returncode != 0 or not report_path.exists():
-            detail = (stderr or b"").decode("utf-8", errors="ignore")[-400:]
+            full_stderr = (stderr or b"").decode("utf-8", errors="ignore")
+            # Printed in full to stdout (captured in the platform's runtime logs) because the
+            # `reason` field returned to the API is deliberately kept short — chrome-launcher's
+            # own diagnostic (e.g. why Chrome's remote-debugging port never became reachable)
+            # is usually earlier in stderr than the last few hundred characters.
+            print(f"[lighthouse:{form_factor}] subprocess failed, full stderr:\n{full_stderr}", flush=True)
+            detail = full_stderr[-1200:]
             return _unavailable(form_factor, f"lighthouse_process_failed: {detail}".strip())
 
         report = json.loads(report_path.read_text(encoding="utf-8"))
