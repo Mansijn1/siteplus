@@ -1,0 +1,42 @@
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BACKEND_ROOT = Path(__file__).resolve().parent
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    # CORS — explicit allowed origins plus a regex for Vercel preview deployments. Never "*":
+    # this API will later accept state-changing requests, and an open CORS policy would let
+    # any third-party page trigger scans on a visitor's behalf.
+    cors_allow_origins: list[str] = [
+        "http://localhost:3000",
+        "https://siteplus-three.vercel.app",
+    ]
+    cors_allow_origin_regex: str = r"^https://siteplus-.*\.vercel\.app$"
+
+    # Scan limits — bound every external call so one hostile or broken target can't hang a
+    # worker indefinitely or exhaust disk/memory.
+    navigation_timeout_ms: int = 30_000
+    lighthouse_timeout_s: int = 90
+    max_response_body_bytes: int = 15 * 1024 * 1024  # 15 MB cap on the main document response
+    max_concurrent_scans: int = 3
+
+    # Lighthouse. Set LIGHTHOUSE_CHROME_PATH to pin a specific Chrome/Chromium binary (e.g. the
+    # one Playwright already downloaded) instead of letting chrome-launcher search the system.
+    lighthouse_chrome_path: str | None = None
+    enable_lighthouse: bool = True
+    enable_mobile_lighthouse: bool = True
+
+    screenshot_dir: Path = BACKEND_ROOT / "storage" / "screenshots"
+    lighthouse_dir: Path = BACKEND_ROOT / "storage" / "lighthouse"
+
+    desktop_viewport: tuple[int, int] = (1440, 900)
+    mobile_viewport: tuple[int, int] = (390, 844)
+
+
+settings = Settings()
+settings.screenshot_dir.mkdir(parents=True, exist_ok=True)
+settings.lighthouse_dir.mkdir(parents=True, exist_ok=True)

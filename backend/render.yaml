@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: webrate-ai-scanner
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: ENABLE_LIGHTHOUSE
+        value: "true"
+      - key: ENABLE_MOBILE_LIGHTHOUSE
+        value: "true"
+    # CORS origins are set in config.py, not here — update that file (and redeploy) if the
+    # frontend's deployed URL changes, since it's never read from an env var at startup.
