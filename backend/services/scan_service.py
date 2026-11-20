@@ -87,7 +87,7 @@ async def _run_pipeline(record: ScanRecord, url: str) -> None:
     async with _semaphore:
         try:
             _set_stage(record, "launching")
-            nav_result, screenshots = await run_browser_scan(record.scan_id, url)
+            nav_result, screenshots, audit_extras = await run_browser_scan(record.scan_id, url)
 
             _set_stage(record, "extracting")
             extracted = _build_extracted_data(nav_result, url)
@@ -112,6 +112,7 @@ async def _run_pipeline(record: ScanRecord, url: str) -> None:
                 console_messages=nav_result.console_messages,
                 response=nav_result.response_info,
                 load_timing=nav_result.load_timing,
+                audit_extras=audit_extras,
                 started_at=record.started_at,
                 completed_at=_now(),
             )
@@ -133,6 +134,7 @@ def _build_extracted_data(nav: NavigationResult, submitted_url: str) -> Extracte
     seo = page_extractor.extract_seo_info(nav.html, nav.response_info.final_url or submitted_url)
     content = page_extractor.extract_content_info(nav.html, seo)
     ux = page_extractor.extract_ux_info(nav.html, nav.horizontal_overflow)
+    page_signals = page_extractor.extract_page_signals(nav.html)
 
     from bs4 import BeautifulSoup  # local import avoids cross-module coupling for a tiny count
 
@@ -149,4 +151,6 @@ def _build_extracted_data(nav: NavigationResult, submitted_url: str) -> Extracte
         failed_requests=nav.failed_requests,
     )
 
-    return ExtractedData(basic=basic, seo=seo, content=content, technical=technical, ux=ux)
+    return ExtractedData(
+        basic=basic, seo=seo, content=content, technical=technical, ux=ux, page_signals=page_signals
+    )

@@ -9,9 +9,27 @@ from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 
-from models.scan_models import BasicInfo, ContentInfo, HeadingInfo, SeoInfo, UxInfo
+from models.scan_models import BasicInfo, ContentInfo, HeadingInfo, PageSignalsInfo, SeoInfo, UxInfo
 
 _WORD_RE = re.compile(r"[A-Za-z0-9']+")
+
+_SOCIAL_HOSTS = {
+    "facebook.com": "facebook",
+    "twitter.com": "twitter",
+    "x.com": "twitter",
+    "instagram.com": "instagram",
+    "linkedin.com": "linkedin",
+    "youtube.com": "youtube",
+    "tiktok.com": "tiktok",
+}
+
+_LINK_PATTERNS: dict[str, re.Pattern] = {
+    "contact": re.compile(r"contact", re.I),
+    "about": re.compile(r"/about|^about$", re.I),
+    "privacy": re.compile(r"privacy", re.I),
+    "terms": re.compile(r"terms", re.I),
+    "pricing": re.compile(r"pricing|/plans", re.I),
+}
 
 
 def extract_basic_info(html: str, submitted_url: str, final_url: str) -> BasicInfo:
@@ -105,6 +123,45 @@ def extract_content_info(html: str, seo: SeoInfo) -> ContentInfo:
         main_sections=main_sections,
         empty_headings=empty_headings,
         duplicate_headings=duplicate_headings[:20],
+    )
+
+
+def extract_page_signals(html: str) -> PageSignalsInfo:
+    """Single pass over the same <a href> elements `extract_seo_info` already iterates —
+    detects presence of key page links by href/anchor-text pattern. This is a presence signal
+    only: it does not verify the linked destination page's content."""
+    soup = BeautifulSoup(html, "html.parser")
+    found: dict[str, bool] = {key: False for key in _LINK_PATTERNS}
+    social_platforms: set[str] = set()
+
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
+        text = a.get_text(strip=True)
+        haystack = f"{href} {text}".lower()
+        if not href:
+            continue
+
+        for key, pattern in _LINK_PATTERNS.items():
+            if not found[key] and pattern.search(haystack):
+                found[key] = True
+
+        host = urlparse(href).hostname or ""
+        for social_host, platform in _SOCIAL_HOSTS.items():
+            if host == social_host or host.endswith(f".{social_host}"):
+                social_platforms.add(platform)
+
+    manifest_tag = soup.find("link", rel=re.compile("^manifest$", re.I))
+    theme_color_tag = soup.find("meta", attrs={"name": re.compile("^theme-color$", re.I)})
+
+    return PageSignalsInfo(
+        has_contact_link=found["contact"],
+        has_about_link=found["about"],
+        has_privacy_link=found["privacy"],
+        has_terms_link=found["terms"],
+        has_pricing_link=found["pricing"],
+        social_platforms=sorted(social_platforms),
+        has_manifest_link=manifest_tag is not None,
+        has_theme_color_meta=theme_color_tag is not None,
     )
 
 

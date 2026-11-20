@@ -1,16 +1,20 @@
+"use client";
+
 import { TrendingUp, TrendingDown, AlertTriangle, Flame } from "lucide-react";
-import {
-  getStrongestCategory,
-  getWeakestCategory,
-  getTotalIssueCount,
-  getHighPriorityIssueCount,
-} from "@/data/demo-results";
+import { EVALUATION_CATEGORIES } from "@/lib/categories";
+import { useEvaluationData } from "./evaluation-data-provider";
 
 export function EvaluationSummaryStats() {
-  const strongest = getStrongestCategory();
-  const weakest = getWeakestCategory();
-  const totalIssues = getTotalIssueCount();
-  const highPriority = getHighPriorityIssueCount();
+  const { data } = useEvaluationData();
+
+  const ranked = EVALUATION_CATEGORIES.map((c) => ({ id: c.id, name: c.name, score: data.scores[c.id] ?? 0 })).sort(
+    (a, b) => b.score - a.score,
+  );
+  const strongest = ranked[0];
+  const weakest = ranked[ranked.length - 1];
+  const allIssues = data.getAllIssues();
+  const totalIssues = allIssues.length;
+  const highPriority = allIssues.filter((i) => i.severity === "critical" || i.severity === "high").length;
 
   const stats = [
     {

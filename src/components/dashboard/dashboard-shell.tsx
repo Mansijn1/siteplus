@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Wordmark } from "@/components/shared/brand-mark";
 import { SidebarNav } from "./sidebar-nav";
 import { AUDIT_STATUS, DEMO_WEBSITE_URL } from "@/data/demo-results";
+import { EvaluationDataProvider, useEvaluationData } from "./evaluation-data-provider";
 
 function toDisplayUrl(url: string) {
   return url.replace(/^https?:\/\//, "");
@@ -25,7 +26,23 @@ export function DashboardShell({
   children: React.ReactNode;
   websiteUrlPromise: Promise<string>;
 }) {
+  return (
+    <EvaluationDataProvider>
+      <ShellBody websiteUrlPromise={websiteUrlPromise}>{children}</ShellBody>
+    </EvaluationDataProvider>
+  );
+}
+
+function ShellBody({
+  children,
+  websiteUrlPromise,
+}: {
+  children: React.ReactNode;
+  websiteUrlPromise: Promise<string>;
+}) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const { phase } = useEvaluationData();
+  const modeLabel = phase === "real" ? "Live Evaluation" : phase === "loading" ? "Evaluating…" : "Demo Audit";
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -40,7 +57,7 @@ export function DashboardShell({
         </div>
         <div className="border-t border-border p-4">
           <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
-            Demo Audit Dashboard
+            {phase === "real" ? "Live Evaluation Dashboard" : "Demo Audit Dashboard"}
           </p>
         </div>
       </aside>
@@ -72,7 +89,7 @@ export function DashboardShell({
               {AUDIT_STATUS}
             </span>
             <span className="hidden shrink-0 rounded-sm bg-secondary px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground sm:inline-block">
-              Demo Audit
+              {modeLabel}
             </span>
           </div>
 

@@ -1,6 +1,7 @@
 """Core Playwright-driven scan: launches Chromium, navigates to the validated target at both
 desktop and mobile viewports, and collects everything observable from that navigation —
-screenshots, console output, failed requests, response/redirect info, and load timing. Never
+screenshots, console output, failed requests, response/redirect info, load timing, and (Phase 3)
+accessibility/typography/image/touch-target/TLS evidence captured from the same pages. Never
 submits a form, clicks a link, or executes anything beyond what loading the page itself does."""
 
 from __future__ import annotations
@@ -12,9 +13,25 @@ from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Route, TimeoutError as PlaywrightTimeoutError, async_playwright
 
 from config import settings
-from models.scan_models import FailedRequest, LoadTiming, ResponseInfo, ScreenshotResult
+from models.scan_models import (
+    AccessibilityAudit,
+    AuditExtras,
+    FailedRequest,
+    ImageDiagnostics,
+    LoadTiming,
+    MixedContentInfo,
+    ResponseInfo,
+    RobotsSitemapInfo,
+    ScreenshotResult,
+    TlsCertificateInfo,
+    TouchTargetSignal,
+    TypographySignal,
+)
+from scanner.accessibility_audit import run_accessibility_audit
 from scanner.network_inspector import NetworkInspector
+from scanner.page_diagnostics import detect_mixed_content, run_image_diagnostics, run_touch_target_signal, run_typography_signal
 from scanner.screenshot import public_screenshot_url, save_screenshot
+from scanner.site_probe import probe_robots_and_sitemap
 from security.url_validation import URLValidationError, is_request_allowed
 
 
@@ -33,6 +50,15 @@ class NavigationResult:
     console_messages: list = field(default_factory=list)
     failed_requests: list[FailedRequest] = field(default_factory=list)
     horizontal_overflow: bool | None = None
+    accessibility: AccessibilityAudit = field(
+        default_factory=lambda: AccessibilityAudit(available=False, reason="not_run")
+    )
+    tls: TlsCertificateInfo = field(default_factory=lambda: TlsCertificateInfo(available=False, reason="not_run"))
+    typography: TypographySignal = field(
+        default_factory=lambda: TypographySignal(available=False, reason="not_run")
+    )
+    images: ImageDiagnostics = field(default_factory=lambda: ImageDiagnostics(available=False, reason="not_run"))
+    mixed_content: MixedContentInfo = field(default_factory=lambda: MixedContentInfo(available=False))
 
 
 async def _guard_navigation(route: Route) -> None:
@@ -59,9 +85,12 @@ def _redirect_chain(response) -> list[str]:
     return chain
 
 
-async def run_browser_scan(scan_id: str, url: str) -> tuple[NavigationResult, dict[str, ScreenshotResult]]:
+async def run_browser_scan(
+    scan_id: str, url: str
+) -> tuple[NavigationResult, dict[str, ScreenshotResult], AuditExtras]:
     screenshots: dict[str, ScreenshotResult] = {}
     navigation_result: NavigationResult | None = None
+    touch_targets = TouchTargetSignal(available=False, reason="not_run")
 
     try:
         async with async_playwright() as p:
@@ -71,7 +100,7 @@ async def run_browser_scan(scan_id: str, url: str) -> tuple[NavigationResult, di
             )
             try:
                 navigation_result = await _scan_desktop(browser, scan_id, url, screenshots)
-                await _scan_mobile(browser, scan_id, url, screenshots)
+                touch_targets = await _scan_mobile(browser, scan_id, url, screenshots)
             finally:
                 await browser.close()
     except PlaywrightError as exc:
@@ -80,7 +109,22 @@ async def run_browser_scan(scan_id: str, url: str) -> tuple[NavigationResult, di
     if navigation_result is None:
         raise ScanBrowserError("Scan produced no result.", "unknown_browser_error")
 
-    return navigation_result, screenshots
+    if settings.site_probe_enabled:
+        robots_sitemap = await probe_robots_and_sitemap(navigation_result.response_info.final_url or url)
+    else:
+        robots_sitemap = RobotsSitemapInfo(available=False, reason="site_probe_disabled")
+
+    audit_extras = AuditExtras(
+        accessibility=navigation_result.accessibility,
+        tls=navigation_result.tls,
+        typography=navigation_result.typography,
+        images=navigation_result.images,
+        touch_targets=touch_targets,
+        robots_sitemap=robots_sitemap,
+        mixed_content=navigation_result.mixed_content,
+    )
+
+    return navigation_result, screenshots, audit_extras
 
 
 async def _scan_desktop(browser, scan_id: str, url: str, screenshots: dict[str, ScreenshotResult]) -> NavigationResult:
@@ -165,6 +209,26 @@ async def _scan_desktop(browser, scan_id: str, url: str, screenshots: dict[str, 
         https=final_url.startswith("https://"),
     )
 
+    tls = TlsCertificateInfo(available=False, reason="not_https_or_unavailable")
+    try:
+        details = await response.security_details()
+        if details:
+            tls = TlsCertificateInfo(
+                available=True,
+                protocol=details.get("protocol"),
+                issuer=details.get("issuer"),
+                valid_from=details.get("validFrom"),
+                valid_to=details.get("validTo"),
+                subject_name=details.get("subjectName"),
+            )
+    except Exception:  # noqa: BLE001 — TLS detail capture is best-effort, never fatal to the scan
+        pass
+
+    accessibility = await run_accessibility_audit(page)
+    typography = await run_typography_signal(page)
+    images = await run_image_diagnostics(page)
+    mixed_content = detect_mixed_content(html, final_url)
+
     result = NavigationResult(
         html=html,
         response_info=response_info,
@@ -172,13 +236,20 @@ async def _scan_desktop(browser, scan_id: str, url: str, screenshots: dict[str, 
         console_messages=inspector.console_messages,
         failed_requests=inspector.failed_requests,
         horizontal_overflow=horizontal_overflow,
+        accessibility=accessibility,
+        tls=tls,
+        typography=typography,
+        images=images,
+        mixed_content=mixed_content,
     )
 
     await context.close()
     return result
 
 
-async def _scan_mobile(browser, scan_id: str, url: str, screenshots: dict[str, ScreenshotResult]) -> None:
+async def _scan_mobile(
+    browser, scan_id: str, url: str, screenshots: dict[str, ScreenshotResult]
+) -> TouchTargetSignal:
     width, height = settings.mobile_viewport
     context = await browser.new_context(
         viewport={"width": width, "height": height},
@@ -192,6 +263,7 @@ async def _scan_mobile(browser, scan_id: str, url: str, screenshots: dict[str, S
     page = await context.new_page()
     await page.route("**/*", _guard_navigation)
 
+    touch_targets = TouchTargetSignal(available=False, reason="navigation_failed")
     try:
         await page.goto(url, wait_until="load", timeout=settings.navigation_timeout_ms)
         screenshot_bytes = await page.screenshot(type="png")
@@ -200,7 +272,10 @@ async def _scan_mobile(browser, scan_id: str, url: str, screenshots: dict[str, S
             available=True, path=f"{scan_id}-mobile.png", url=public_screenshot_url(scan_id, "mobile"),
             width=width, height=height,
         )
+        touch_targets = await run_touch_target_signal(page)
     except (PlaywrightError, PlaywrightTimeoutError) as exc:
         screenshots["mobile"] = ScreenshotResult(available=False, reason=str(exc)[:300])
     finally:
         await context.close()
+
+    return touch_targets

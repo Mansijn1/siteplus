@@ -4,12 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ArrowRight } from "lucide-react";
 import { EVALUATION_CATEGORIES, TOTAL_WEIGHT } from "@/lib/categories";
-import { DEMO_SCORES, CATEGORY_ANALYSIS } from "@/data/demo-results";
 import { ScoreBar, GradeChip } from "./grade-chip";
 import { SeverityBadge } from "./severity-badge";
+import { useEvaluationData } from "./evaluation-data-provider";
 
 export function EvaluationTable() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { data } = useEvaluationData();
 
   return (
     <div className="overflow-hidden rounded-lg border border-foreground/12 bg-popover">
@@ -23,8 +24,8 @@ export function EvaluationTable() {
 
       <div className="divide-y divide-border">
         {EVALUATION_CATEGORIES.map((category) => {
-          const score = DEMO_SCORES[category.id] ?? 0;
-          const analysis = CATEGORY_ANALYSIS[category.id];
+          const score = data.scores[category.id] ?? 0;
+          const analysis = data.getCategoryAnalysis(category.id);
           const expanded = expandedId === category.id;
           const topIssue = analysis.issues[0];
           const topRecommendation = analysis.recommendations[0];

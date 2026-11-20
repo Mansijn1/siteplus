@@ -1,13 +1,16 @@
+"use client";
+
 import Link from "next/link";
 import { EVALUATION_CATEGORIES, type CategoryId } from "@/lib/categories";
-import { DEMO_SCORES } from "@/data/demo-results";
 import { getGradeInfo } from "@/lib/scoring";
+import { useEvaluationData } from "./evaluation-data-provider";
 
 export function CategoryPickerList({ selectedId }: { selectedId: CategoryId }) {
+  const { data } = useEvaluationData();
   return (
     <nav className="overflow-hidden rounded-lg border border-foreground/12 bg-popover">
       {EVALUATION_CATEGORIES.map((category) => {
-        const score = DEMO_SCORES[category.id] ?? 0;
+        const score = data.scores[category.id] ?? 0;
         const grade = getGradeInfo(score);
         const active = category.id === selectedId;
         const Icon = category.icon;

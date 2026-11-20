@@ -148,6 +148,21 @@ class TechnicalInfo(BaseModel):
     failed_requests: list[FailedRequest]
 
 
+class PageSignalsInfo(BaseModel):
+    """Presence signals detected from anchor href/text patterns on the SINGLE scanned page —
+    e.g. a link whose href contains '/contact'. This detects presence of a link pointing
+    somewhere, not the destination page's actual content; analyzers that use this say so."""
+
+    has_contact_link: bool = False
+    has_about_link: bool = False
+    has_privacy_link: bool = False
+    has_terms_link: bool = False
+    has_pricing_link: bool = False
+    social_platforms: list[str] = Field(default_factory=list)
+    has_manifest_link: bool = False
+    has_theme_color_meta: bool = False
+
+
 class UxInfo(BaseModel):
     nav_elements: int
     buttons: int
@@ -165,6 +180,111 @@ class ExtractedData(BaseModel):
     content: ContentInfo
     technical: TechnicalInfo
     ux: UxInfo
+    page_signals: PageSignalsInfo
+
+
+class AxeViolationNode(BaseModel):
+    selector: str
+    html_snippet: str | None = None
+    failure_summary: str | None = None
+
+
+class AxeViolation(BaseModel):
+    rule_id: str
+    impact: str | None = None  # minor / moderate / serious / critical — axe-core's own scale
+    description: str
+    help_text: str | None = None
+    help_url: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    nodes: list[AxeViolationNode] = Field(default_factory=list)
+
+
+class AccessibilityAudit(BaseModel):
+    """Real axe-core results, injected into the same page Phase 2 already loaded — never a
+    second browser launch. `available=False` (not a clean pass) when axe itself couldn't run."""
+
+    available: bool
+    reason: str | None = None
+    violations: list[AxeViolation] = Field(default_factory=list)
+    passed_rule_ids: list[str] = Field(default_factory=list)
+    passes_count: int = 0
+    incomplete_count: int = 0
+
+
+class TlsCertificateInfo(BaseModel):
+    """From Playwright's own `response.security_details()` on the main document response —
+    unavailable for plain http or when the browser doesn't expose it for this connection."""
+
+    available: bool
+    reason: str | None = None
+    protocol: str | None = None
+    issuer: str | None = None
+    valid_from: float | None = None
+    valid_to: float | None = None
+    subject_name: str | None = None
+
+
+class TypographySignal(BaseModel):
+    """Distinct computed font-family/font-size values sampled from up to 500 leaf text nodes —
+    a real, if approximate, typography-consistency signal, not a subjective design judgment."""
+
+    available: bool
+    reason: str | None = None
+    distinct_font_families: int | None = None
+    distinct_font_sizes: int | None = None
+    font_family_samples: list[str] = Field(default_factory=list)
+
+
+class ImageDiagnostics(BaseModel):
+    available: bool
+    reason: str | None = None
+    total_checked: int = 0
+    broken_count: int = 0
+    oversized_count: int = 0
+    broken_examples: list[str] = Field(default_factory=list)
+
+
+class TouchTargetSignal(BaseModel):
+    """Interactive elements below the ~44x44 CSS px minimum recommended touch-target size,
+    measured on the real mobile viewport Phase 2 already renders."""
+
+    available: bool
+    reason: str | None = None
+    total_checked: int = 0
+    undersized_count: int = 0
+    undersized_examples: list[str] = Field(default_factory=list)
+
+
+class RobotsSitemapInfo(BaseModel):
+    available: bool
+    reason: str | None = None
+    robots_txt_present: bool = False
+    robots_txt_status: int | None = None
+    robots_txt_disallow_all: bool = False
+    sitemap_declared_in_robots: bool = False
+    sitemap_xml_present: bool = False
+    sitemap_xml_status: int | None = None
+
+
+class MixedContentInfo(BaseModel):
+    available: bool
+    insecure_resource_count: int = 0
+    insecure_resource_examples: list[str] = Field(default_factory=list)
+
+
+class AuditExtras(BaseModel):
+    """Additive Phase 3 evidence captured during the SAME Phase 2 browser session (no second
+    browser launch, no re-scan) plus two passive same-origin HTTP GETs for robots/sitemap.
+    Entirely optional on `ScanResults` — Phase 2's existing contract is unaffected when this
+    is None (e.g. a scan that predates this field, or one where every sub-capture failed)."""
+
+    accessibility: AccessibilityAudit
+    tls: TlsCertificateInfo
+    typography: TypographySignal
+    images: ImageDiagnostics
+    touch_targets: TouchTargetSignal
+    robots_sitemap: RobotsSitemapInfo
+    mixed_content: MixedContentInfo
 
 
 class ScanResults(BaseModel):
@@ -176,6 +296,7 @@ class ScanResults(BaseModel):
     console_messages: list[ConsoleMessage]
     response: ResponseInfo
     load_timing: LoadTiming
+    audit_extras: AuditExtras | None = None
     started_at: str
     completed_at: str | None = None
 

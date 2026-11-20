@@ -2,8 +2,8 @@
 
 import { Bar, BarChart, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { EVALUATION_CATEGORIES } from "@/lib/categories";
-import { DEMO_SCORES } from "@/data/demo-results";
 import { getGradeInfo } from "@/lib/scoring";
+import { useEvaluationData } from "./evaluation-data-provider";
 
 const TAG_COLOR: Record<string, string> = {
   pass: "var(--pass)",
@@ -11,13 +11,15 @@ const TAG_COLOR: Record<string, string> = {
   critical: "var(--critical)",
 };
 
-const data = EVALUATION_CATEGORIES.map((category) => ({
-  name: category.shortName,
-  score: DEMO_SCORES[category.id] ?? 0,
-  tag: getGradeInfo(DEMO_SCORES[category.id] ?? 0).tag,
-})).sort((a, b) => b.score - a.score);
-
 export function ScoreDistributionChart() {
+  const { data: evaluationData } = useEvaluationData();
+
+  const data = EVALUATION_CATEGORIES.map((category) => ({
+    name: category.shortName,
+    score: evaluationData.scores[category.id] ?? 0,
+    tag: getGradeInfo(evaluationData.scores[category.id] ?? 0).tag,
+  })).sort((a, b) => b.score - a.score);
+
   return (
     <div className="h-[420px] w-full">
       <ResponsiveContainer width="100%" height="100%">

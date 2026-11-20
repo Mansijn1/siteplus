@@ -1,15 +1,18 @@
+"use client";
+
 import { CheckCircle2, CircleCheck } from "lucide-react";
 import type { CategoryId } from "@/lib/categories";
 import { getCategoryById } from "@/lib/categories";
-import { DEMO_SCORES, getCategoryAnalysis } from "@/data/demo-results";
 import { ScoreGauge } from "./score-gauge";
 import { SeverityBadge } from "./severity-badge";
 import { getGradeInfo } from "@/lib/scoring";
+import { useEvaluationData } from "./evaluation-data-provider";
 
 export function CategoryDetail({ categoryId }: { categoryId: CategoryId }) {
+  const { data } = useEvaluationData();
   const category = getCategoryById(categoryId);
-  const score = DEMO_SCORES[categoryId] ?? 0;
-  const analysis = getCategoryAnalysis(categoryId);
+  const score = data.scores[categoryId] ?? 0;
+  const analysis = data.getCategoryAnalysis(categoryId);
   const grade = getGradeInfo(score);
   const Icon = category.icon;
 
@@ -77,9 +80,14 @@ export function CategoryDetail({ categoryId }: { categoryId: CategoryId }) {
         ) : (
           <div className="mt-3 divide-y divide-border rounded-lg border border-foreground/12 bg-popover">
             {analysis.issues.map((issue) => (
-              <div key={issue.title} className="p-5">
+              <div key={issue.issueId ?? issue.title} className="p-5">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <SeverityBadge severity={issue.severity} />
+                  {issue.priority && (
+                    <span className="rounded-sm bg-secondary px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                      {issue.priority}
+                    </span>
+                  )}
                   <h4 className="text-[15px] font-medium text-foreground/90">{issue.title}</h4>
                 </div>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{issue.explanation}</p>
@@ -100,8 +108,20 @@ export function CategoryDetail({ categoryId }: { categoryId: CategoryId }) {
         </h3>
         <div className="mt-3 divide-y divide-border rounded-lg border border-foreground/12 bg-popover">
           {analysis.recommendations.map((rec) => (
-            <div key={rec.title} className="p-5">
-              <h4 className="text-[15px] font-medium text-foreground/90">{rec.title}</h4>
+            <div key={rec.issueId ?? rec.title} className="p-5">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h4 className="text-[15px] font-medium text-foreground/90">{rec.title}</h4>
+                {rec.priority && (
+                  <span className="rounded-sm bg-secondary px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                    {rec.priority}
+                  </span>
+                )}
+                {rec.estimatedEffort && (
+                  <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                    {rec.estimatedEffort} effort
+                  </span>
+                )}
+              </div>
               <dl className="mt-3 space-y-2 text-sm leading-relaxed">
                 <div>
                   <dt className="inline font-medium text-foreground/85">Why it matters — </dt>

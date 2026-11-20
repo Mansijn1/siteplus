@@ -4,13 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from api.evaluation_routes import router as evaluation_router
 from api.scan_routes import router as scan_router
 from config import settings
 
 app = FastAPI(
     title="WebRate AI Scanner API",
-    description="Phase 2: real, passive website scanning and raw data collection.",
-    version="0.1.0",
+    description="Phase 2: real, passive website scanning. Phase 3: the 12-category evaluation engine.",
+    version="0.2.0",
 )
 
 app.add_middleware(
@@ -25,6 +26,7 @@ app.add_middleware(
 app.mount("/static/screenshots", StaticFiles(directory=str(settings.screenshot_dir)), name="screenshots")
 
 app.include_router(scan_router)
+app.include_router(evaluation_router)
 
 
 @app.get("/health")

@@ -47,6 +47,16 @@ class Settings(BaseSettings):
     desktop_viewport: tuple[int, int] = (1440, 900)
     mobile_viewport: tuple[int, int] = (390, 844)
 
+    # Phase 3 evidence capture — all run inside the SAME Playwright browser process Phase 2
+    # already launches (no second Chromium instance, unlike Lighthouse), so the free-tier OOM
+    # risk that forced lighthouse_enabled=False above doesn't apply here. Independent toggles
+    # kept anyway as an escape hatch if one of them turns out to be slow or flaky in practice.
+    accessibility_audit_enabled: bool = True
+    page_diagnostics_enabled: bool = True  # typography / image / touch-target signals
+    site_probe_enabled: bool = True  # robots.txt / sitemap.xml — two small httpx GETs, no browser
+    axe_js_path: Path = BACKEND_ROOT / "vendor" / "axe.min.js"
+    site_probe_timeout_s: float = 8.0
+
 
 def _detect_chromium_path() -> str | None:
     """Asks Playwright directly where it installed Chromium, rather than guessing a path and

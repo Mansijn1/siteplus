@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { SeverityBadge } from "./severity-badge";
 import type { Severity } from "@/data/demo-results";
+import type { Priority, Effort } from "@/lib/evaluation-api";
 
 interface RecommendationCardProps {
   categoryId: string;
@@ -11,6 +12,8 @@ interface RecommendationCardProps {
   how: string;
   expectedImpact: string;
   topSeverity: Severity;
+  priority?: Priority;
+  estimatedEffort?: Effort;
   expanded?: boolean;
 }
 
@@ -22,6 +25,8 @@ export function RecommendationCard({
   how,
   expectedImpact,
   topSeverity,
+  priority,
+  estimatedEffort,
   expanded = false,
 }: RecommendationCardProps) {
   return (
@@ -30,12 +35,22 @@ export function RecommendationCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <SeverityBadge severity={topSeverity} />
+            {priority && (
+              <span className="rounded-sm bg-secondary px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                {priority}
+              </span>
+            )}
             <Link
               href={`/dashboard/categories?id=${categoryId}`}
               className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground hover:text-flag"
             >
               {categoryName}
             </Link>
+            {estimatedEffort && (
+              <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                {estimatedEffort} effort
+              </span>
+            )}
           </div>
           <h3 className="mt-2 text-[15px] font-medium text-foreground/90">{title}</h3>
         </div>
