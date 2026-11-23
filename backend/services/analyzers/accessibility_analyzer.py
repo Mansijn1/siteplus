@@ -28,9 +28,17 @@ def analyze(scan: ScanResults) -> CategoryResult:
 
     axe = extras.accessibility if extras else None
     if axe and axe.available:
+        violated_rule_ids = {v.rule_id for v in axe.violations}
         for violation in axe.violations:
             _report_axe_violation(b, violation)
         for rule_id in axe.passed_rule_ids:
+            # axe-core evaluates rules like color-contrast/label/image-alt per-element, so the
+            # same rule_id can legitimately appear in BOTH `passes` (elements that were fine) and
+            # `violations` (elements that weren't) on the same page. Reporting it as passed here
+            # too would record one check_id as both failed and passed — recording it only once,
+            # as the failure, is the correct (and more conservative) outcome.
+            if rule_id in violated_rule_ids:
+                continue
             b.passed(f"axe:{rule_id}", f"axe-core rule '{rule_id}'")
         coverage_note = (
             f" ({axe.incomplete_count} additional check(s) could not be automatically determined "
@@ -76,6 +84,7 @@ def _report_axe_violation(b: CategoryBuilder, violation: AxeViolation) -> None:
             observed_value=example_html,
             extra={"rule_id": violation.rule_id, "tags": violation.tags, "help_url": violation.help_url, "node_count": node_count},
         ),
+        documentation_url=violation.help_url,
     )
 
 

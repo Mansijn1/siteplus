@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -83,38 +84,63 @@ def _fail(record: ScanRecord, code: str, message: str) -> None:
     record.completed_at = _now()
 
 
+async def _execute_scan(
+    scan_id: str, url: str, started_at: str, on_stage: Callable[[str], None] | None = None
+) -> ScanResults:
+    """The actual scan: browser capture, extraction, optional Lighthouse. Shared by the
+    single-page pipeline below (which reports granular progress via `on_stage`, polled by the
+    scanning UI) and the multi-page website crawler (`website_evaluation_service.py`, which
+    tracks progress at the page level instead and passes `on_stage=None`). Raises
+    `URLValidationError`/`ScanBrowserError` on failure — callers decide how to record that."""
+
+    def stage(key: str) -> None:
+        if on_stage:
+            on_stage(key)
+
+    stage("launching")
+    nav_result, screenshots, audit_extras = await run_browser_scan(scan_id, url)
+
+    stage("extracting")
+    extracted = _build_extracted_data(nav_result, url)
+
+    lighthouse: dict[str, LighthouseRun] = {}
+    if settings.lighthouse_enabled:
+        stage("lighthouse_desktop")
+        lighthouse["desktop"] = await run_lighthouse(nav_result.response_info.final_url or url, "desktop")
+        if settings.lighthouse_mobile_enabled:
+            stage("lighthouse_mobile")
+            lighthouse["mobile"] = await run_lighthouse(nav_result.response_info.final_url or url, "mobile")
+
+    stage("finalizing")
+    return ScanResults(
+        scan_id=scan_id,
+        submitted_url=url,
+        extracted=extracted,
+        screenshots=screenshots,
+        lighthouse=lighthouse,
+        console_messages=nav_result.console_messages,
+        response=nav_result.response_info,
+        load_timing=nav_result.load_timing,
+        audit_extras=audit_extras,
+        started_at=started_at,
+        completed_at=_now(),
+    )
+
+
+async def run_scan_for_url(scan_id: str, url: str) -> ScanResults:
+    """Public entrypoint for callers that just want a completed scan with no progress UI and no
+    `ScanRecord` bookkeeping — currently only the website crawler. Bounded by the same
+    concurrency semaphore as the single-page pipeline, so a multi-page crawl can't bypass the
+    `max_concurrent_scans` limit by going around `start_scan`."""
+    async with _semaphore:
+        return await _execute_scan(scan_id, url, _now())
+
+
 async def _run_pipeline(record: ScanRecord, url: str) -> None:
     async with _semaphore:
         try:
-            _set_stage(record, "launching")
-            nav_result, screenshots, audit_extras = await run_browser_scan(record.scan_id, url)
-
-            _set_stage(record, "extracting")
-            extracted = _build_extracted_data(nav_result, url)
-
-            lighthouse: dict[str, LighthouseRun] = {}
-            if settings.lighthouse_enabled:
-                _set_stage(record, "lighthouse_desktop")
-                lighthouse["desktop"] = await run_lighthouse(nav_result.response_info.final_url or url, "desktop")
-                if settings.lighthouse_mobile_enabled:
-                    _set_stage(record, "lighthouse_mobile")
-                    lighthouse["mobile"] = await run_lighthouse(
-                        nav_result.response_info.final_url or url, "mobile"
-                    )
-
-            _set_stage(record, "finalizing")
-            record.results = ScanResults(
-                scan_id=record.scan_id,
-                submitted_url=record.submitted_url,
-                extracted=extracted,
-                screenshots=screenshots,
-                lighthouse=lighthouse,
-                console_messages=nav_result.console_messages,
-                response=nav_result.response_info,
-                load_timing=nav_result.load_timing,
-                audit_extras=audit_extras,
-                started_at=record.started_at,
-                completed_at=_now(),
+            record.results = await _execute_scan(
+                record.scan_id, url, record.started_at, on_stage=lambda key: _set_stage(record, key)
             )
             record.status = ScanStatus.COMPLETED
             record.progress = 100

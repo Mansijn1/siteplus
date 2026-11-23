@@ -72,3 +72,32 @@ def test_grade_thresholds_match_frontend():
     assert scoring_engine.grade_label(60) == "Needs Attention"
     assert scoring_engine.grade_label(59.9) == "Critical"
     assert scoring_engine.grade_label(0) == "Critical"
+
+
+def test_explain_category_score_describes_pass_fail_ratio():
+    from models.evaluation_models import CheckResult, CheckStatus
+
+    result = CategoryResult(
+        category="seo", weight=10, score=66.7,
+        checks=[
+            CheckResult(check_id="a", label="Title present", status=CheckStatus.PASSED),
+            CheckResult(check_id="b", label="Meta description present", status=CheckStatus.PASSED),
+            CheckResult(check_id="c", label="Canonical present", status=CheckStatus.FAILED, detail="x"),
+            CheckResult(check_id="d", label="Sitemap present", status=CheckStatus.UNAVAILABLE, detail="probe_failed"),
+        ],
+        issues=[], recommendations=[], passed_count=2, failed_count=1, unavailable_count=1, summary="",
+    )
+    explanation = scoring_engine.explain_category_score(result)
+    assert "2 of 3" in explanation
+    assert "1 additional check" in explanation
+    assert "Canonical present" in explanation
+
+
+def test_explain_category_score_when_entirely_unavailable():
+    result = CategoryResult(
+        category="seo", weight=10, score=None, checks=[], issues=[], recommendations=[],
+        passed_count=0, failed_count=0, unavailable_count=3, summary="",
+    )
+    explanation = scoring_engine.explain_category_score(result)
+    assert "No score" in explanation
+    assert "3" in explanation

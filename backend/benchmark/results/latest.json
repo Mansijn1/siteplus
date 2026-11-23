@@ -1,0 +1,614 @@
+{
+  "generated_at": "2026-11-23T04:08:40.203381+00:00",
+  "overall": {
+    "tp": 27,
+    "fp": 0,
+    "fn": 0,
+    "tn": 49,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "false_positive_rate": 0.0,
+    "false_negative_rate": 0.0
+  },
+  "confidence_calibration": {
+    "avg_confidence_of_true_positives": 0.913,
+    "avg_confidence_of_false_positives": null,
+    "note": "A well-calibrated system should show avg_confidence_of_true_positives clearly higher than avg_confidence_of_false_positives. If they're close or inverted, the confidence bands in services/confidence_engine.py need recalibrating."
+  },
+  "evaluation_coverage": {
+    "ground_truth_checks_defined": 76,
+    "unavailable_at_scan_time": 0,
+    "coverage_percent": 100.0
+  },
+  "by_category": {
+    "seo": {
+      "tp": 8,
+      "fp": 0,
+      "fn": 0,
+      "tn": 17,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "accessibility": {
+      "tp": 5,
+      "fp": 0,
+      "fn": 0,
+      "tn": 2,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "mobile": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "tn": 5,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "ui": {
+      "tp": 5,
+      "fp": 0,
+      "fn": 0,
+      "tn": 2,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "ux": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 5,
+      "precision": null,
+      "recall": null,
+      "f1": null
+    },
+    "trust": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 4,
+      "precision": null,
+      "recall": null,
+      "f1": null
+    },
+    "conversion": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 2,
+      "precision": null,
+      "recall": null,
+      "f1": null
+    },
+    "innovation": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 2,
+      "precision": null,
+      "recall": null,
+      "f1": null
+    },
+    "technical": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 5,
+      "precision": null,
+      "recall": null,
+      "f1": null
+    },
+    "security": {
+      "tp": 5,
+      "fp": 0,
+      "fn": 0,
+      "tn": 5,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "content": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    }
+  },
+  "fixtures": [
+    {
+      "fixture": "clean.html",
+      "checks": [
+        {
+          "check_id": "title_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "title_length",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "meta_description_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "meta_description_length",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "canonical_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "single_h1",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "heading_hierarchy",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "robots_meta_not_blocking",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "open_graph_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "images_alt_text",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "internal_linking",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "structured_data_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "html_lang_attribute",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "viewport_meta",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "horizontal_overflow",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "no_broken_images",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "images_not_oversized",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "navigation_landmark_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "forms_have_inputs",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "structured_content_sections",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "ctas_or_forms_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "no_js_console_errors",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "about_page_linked",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "privacy_policy_linked",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "terms_linked",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "social_links_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "lead_capture_mechanism_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "contact_info_discoverable",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "pwa_manifest_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "theme_color_configured",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "http_status_ok",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "content_type_header_correct",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "redirect_chain_minimal",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "x_robots_tag_not_blocking",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "header:strict-transport-security",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "header:content-security-policy",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "header:x-frame-options",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "header:x-content-type-options",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "header:referrer-policy",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        }
+      ]
+    },
+    {
+      "fixture": "seo_broken.html",
+      "checks": [
+        {
+          "check_id": "title_present",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "meta_description_present",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "canonical_present",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "single_h1",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "no_duplicate_headings",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "robots_meta_not_blocking",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "open_graph_present",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "images_alt_text",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "structured_data_present",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "html_lang_attribute",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "viewport_meta",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "internal_linking",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        }
+      ]
+    },
+    {
+      "fixture": "accessibility_broken.html",
+      "checks": [
+        {
+          "check_id": "html_lang_attribute",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "axe:color-contrast",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "axe:label",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "axe:image-alt",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "title_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "viewport_meta",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        }
+      ]
+    },
+    {
+      "fixture": "mobile_broken.html",
+      "checks": [
+        {
+          "check_id": "viewport_meta",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "horizontal_overflow",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "touch_target_size",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "title_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "html_lang_attribute",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        }
+      ]
+    },
+    {
+      "fixture": "ui_broken.html",
+      "checks": [
+        {
+          "check_id": "font_family_consistency",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "font_size_consistency",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "heading_size_hierarchy",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "alignment_consistency",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "no_broken_images",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "title_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "viewport_meta",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        }
+      ]
+    },
+    {
+      "fixture": "security_broken.html",
+      "checks": [
+        {
+          "check_id": "header:strict-transport-security",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "header:content-security-policy",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "header:x-frame-options",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "header:x-content-type-options",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "header:referrer-policy",
+          "expected": "failed",
+          "actual": "failed",
+          "verdict": "TP"
+        },
+        {
+          "check_id": "title_present",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        },
+        {
+          "check_id": "http_status_ok",
+          "expected": "passed",
+          "actual": "passed",
+          "verdict": "TN"
+        }
+      ]
+    }
+  ],
+  "scope_note": "Benchmark runs against 6 local, hand-authored fixture pages with known defects \u2014 not the live, diverse (React/Next.js/e-commerce/SaaS/etc.) sites the spec lists, which would require external targets this project can't keep reproducible or manually re-verify on demand. HTTPS-dependent checks (https_enabled, tls_certificate_valid, no_mixed_content) and checks that depend on the test environment rather than detector logic (robots_txt_present, sitemap_present, cookie_security_attributes) are excluded from ground truth for the reasons documented in ground_truth.py's module docstring."
+}

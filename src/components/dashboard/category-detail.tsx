@@ -88,6 +88,18 @@ export function CategoryDetail({ categoryId }: { categoryId: CategoryId }) {
                       {issue.priority}
                     </span>
                   )}
+                  {issue.confidenceLevel && (
+                    <span
+                      className={`rounded-sm px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.08em] ${
+                        issue.verificationStatus === "needs_review"
+                          ? "bg-flag/10 text-flag"
+                          : "bg-pass/10 text-pass"
+                      }`}
+                      title={`Confidence: ${Math.round((issue.confidence ?? 0) * 100)}% (${issue.evidenceSource ?? "unknown source"})`}
+                    >
+                      {issue.confidenceLevel.replace("_", " ")} confidence
+                    </span>
+                  )}
                   <h4 className="text-[15px] font-medium text-foreground/90">{issue.title}</h4>
                 </div>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{issue.explanation}</p>
@@ -95,6 +107,24 @@ export function CategoryDetail({ categoryId }: { categoryId: CategoryId }) {
                   <span className="font-medium text-foreground/85">Impact — </span>
                   {issue.impact}
                 </p>
+                {issue.evidenceDetail && (
+                  <details className="mt-2.5">
+                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
+                      View evidence
+                    </summary>
+                    <dl className="mt-2 space-y-1 rounded-sm bg-secondary/40 p-3 font-mono text-xs text-foreground/80">
+                      {issue.evidenceDetail.selector && (
+                        <div><dt className="inline text-muted-foreground">selector: </dt><dd className="inline break-all">{issue.evidenceDetail.selector}</dd></div>
+                      )}
+                      {issue.evidenceDetail.observed_value !== undefined && issue.evidenceDetail.observed_value !== null && (
+                        <div><dt className="inline text-muted-foreground">observed: </dt><dd className="inline break-all">{JSON.stringify(issue.evidenceDetail.observed_value)}</dd></div>
+                      )}
+                      {issue.evidenceDetail.expected_value !== undefined && issue.evidenceDetail.expected_value !== null && (
+                        <div><dt className="inline text-muted-foreground">expected: </dt><dd className="inline break-all">{JSON.stringify(issue.evidenceDetail.expected_value)}</dd></div>
+                      )}
+                    </dl>
+                  </details>
+                )}
               </div>
             ))}
           </div>
@@ -121,8 +151,19 @@ export function CategoryDetail({ categoryId }: { categoryId: CategoryId }) {
                     {rec.estimatedEffort} effort
                   </span>
                 )}
+                {rec.bucket && (
+                  <span className="rounded-sm bg-flag/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-flag">
+                    {rec.bucket.replace("_", " ")}
+                  </span>
+                )}
               </div>
               <dl className="mt-3 space-y-2 text-sm leading-relaxed">
+                {rec.rootCause && (
+                  <div>
+                    <dt className="inline font-medium text-foreground/85">Root cause — </dt>
+                    <dd className="inline text-muted-foreground">{rec.rootCause}</dd>
+                  </div>
+                )}
                 <div>
                   <dt className="inline font-medium text-foreground/85">Why it matters — </dt>
                   <dd className="inline text-muted-foreground">{rec.why}</dd>
@@ -135,6 +176,16 @@ export function CategoryDetail({ categoryId }: { categoryId: CategoryId }) {
                   <dt className="inline font-medium text-foreground/85">Expected impact — </dt>
                   <dd className="inline text-muted-foreground">{rec.expectedImpact}</dd>
                 </div>
+                {rec.documentationUrl && (
+                  <div>
+                    <dt className="inline font-medium text-foreground/85">Reference — </dt>
+                    <dd className="inline">
+                      <a href={rec.documentationUrl} target="_blank" rel="noreferrer" className="text-flag underline underline-offset-4 hover:text-flag/80">
+                        {rec.documentationUrl}
+                      </a>
+                    </dd>
+                  </div>
+                )}
               </dl>
             </div>
           ))}

@@ -5,6 +5,7 @@ from models.scan_models import (
     AccessibilityAudit,
     AxeViolation,
     AxeViolationNode,
+    LayoutSignal,
     MixedContentInfo,
     RobotsSitemapInfo,
     TouchTargetSignal,
@@ -18,6 +19,7 @@ from services.analyzers import (
     seo_analyzer,
     technical_analyzer,
     trust_analyzer,
+    ui_analyzer,
     ux_analyzer,
 )
 from services.recommendation_engine import collect_recommendations
@@ -245,6 +247,38 @@ def test_recommendation_engine_dedupes_by_issue_id():
     assert len(issue_ids) == len(set(issue_ids))
 
 
+# ---- UI: layout/alignment signal (Phase 4) ----
+
+
+def test_ui_heading_size_inversion_flagged():
+    scan = make_scan_results()
+    scan.audit_extras.layout = LayoutSignal(available=True, heading_hierarchy_sizes_ok=False, distinct_left_edges=2)
+    result = ui_analyzer.analyze(scan)
+    assert _check(result, "heading_size_hierarchy").status == CheckStatus.FAILED
+
+
+def test_ui_inconsistent_alignment_flagged():
+    scan = make_scan_results()
+    scan.audit_extras.layout = LayoutSignal(available=True, heading_hierarchy_sizes_ok=True, distinct_left_edges=9)
+    result = ui_analyzer.analyze(scan)
+    assert _check(result, "alignment_consistency").status == CheckStatus.FAILED
+
+
+def test_ui_layout_unavailable_degrades_gracefully():
+    scan = make_scan_results()
+    scan.audit_extras.layout = LayoutSignal(available=False, reason="evaluate_failed")
+    result = ui_analyzer.analyze(scan)
+    assert _check(result, "heading_size_hierarchy").status == CheckStatus.UNAVAILABLE
+
+
+# ---- SEO: structured data (Phase 4) ----
+
+
+def test_seo_missing_structured_data_flagged():
+    result = seo_analyzer.analyze(make_scan_results())  # default fixture has no JSON-LD
+    assert _check(result, "structured_data_present").status == CheckStatus.FAILED
+
+
 def test_no_analyzer_ever_reports_unavailable_as_failed_or_passed():
     # The "never treat unavailable data as a confirmed failure" rule, checked mechanically:
     # every check must be exactly one of the three statuses, and unavailable checks must carry
@@ -255,3 +289,25 @@ def test_no_analyzer_ever_reports_unavailable_as_failed_or_passed():
         for check in result.checks:
             if check.status == CheckStatus.UNAVAILABLE:
                 assert check.detail, f"{check.check_id} is unavailable with no reason"
+
+
+def test_accessibility_same_rule_in_passes_and_violations_counts_as_failed_only():
+    # Regression test: axe-core evaluates rules like color-contrast per-element, so the same
+    # rule_id can appear in BOTH `passes` and `violations` on one page. Found by the benchmark
+    # (benchmark/runner.py) as a real false negative before this fix.
+    scan = make_scan_results()
+    scan.audit_extras.accessibility = AccessibilityAudit(
+        available=True,
+        violations=[
+            AxeViolation(
+                rule_id="color-contrast", impact="serious", description="d", help_text="h",
+                help_url=None, tags=[], nodes=[AxeViolationNode(selector=".low-contrast")],
+            )
+        ],
+        passed_rule_ids=["color-contrast", "label"],  # same rule_id also reported as passed
+        passes_count=2, incomplete_count=0,
+    )
+    result = accessibility_analyzer.analyze(scan)
+    contrast_checks = [c for c in result.checks if c.check_id == "axe:color-contrast"]
+    assert len(contrast_checks) == 1
+    assert contrast_checks[0].status == CheckStatus.FAILED

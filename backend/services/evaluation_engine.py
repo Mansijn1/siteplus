@@ -27,6 +27,7 @@ from services.analyzers import (
     ui_analyzer,
     ux_analyzer,
 )
+from services.validation_engine import validate_category_result
 
 _ANALYZERS = {
     "ui": ui_analyzer.analyze,
@@ -54,7 +55,10 @@ async def run_evaluation(evaluation_id: str, scan: ScanResults, started_at: str)
         *[asyncio.to_thread(analyze_fn, scan) for analyze_fn in _ANALYZERS.values()]
     )
     for category_id, result in zip(_ANALYZERS.keys(), results, strict=True):
-        category_results[category_id] = result
+        validated = validate_category_result(result)
+        category_results[category_id] = validated.model_copy(
+            update={"score_explanation": scoring_engine.explain_category_score(validated)}
+        )
 
     overall_score, coverage = scoring_engine.calculate_overall_score(category_results)
     grade = scoring_engine.grade_label(overall_score) if overall_score is not None else None
@@ -69,6 +73,7 @@ async def run_evaluation(evaluation_id: str, scan: ScanResults, started_at: str)
         scan_id=scan.scan_id,
         submitted_url=scan.submitted_url,
         status=EvaluationStatus.COMPLETED,
+        scoring_config_version=scoring_engine.SCORING_CONFIG_VERSION,
         overall_score=overall_score,
         score_coverage_percent=coverage,
         grade=grade,

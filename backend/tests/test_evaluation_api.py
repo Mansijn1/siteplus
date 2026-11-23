@@ -105,3 +105,14 @@ async def test_evaluation_service_runs_the_real_async_engine():
         assert any(issue.category == "seo" for cat in result.categories.values() for issue in cat.issues)
     finally:
         _scans.pop(scan_id, None)
+
+
+def test_benchmark_latest_endpoint_returns_real_results_when_present():
+    resp = client.get("/api/benchmark/latest")
+    # Either the benchmark has been run in this environment (200, real data) or it hasn't (404)
+    # — both are valid states; what must never happen is fabricated data on a 200.
+    assert resp.status_code in (200, 404)
+    if resp.status_code == 200:
+        body = resp.json()
+        assert "overall" in body
+        assert "precision" in body["overall"]

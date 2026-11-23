@@ -46,6 +46,7 @@ class Settings(BaseSettings):
 
     desktop_viewport: tuple[int, int] = (1440, 900)
     mobile_viewport: tuple[int, int] = (390, 844)
+    tablet_viewport: tuple[int, int] = (768, 1024)
 
     # Phase 3 evidence capture — all run inside the SAME Playwright browser process Phase 2
     # already launches (no second Chromium instance, unlike Lighthouse), so the free-tier OOM

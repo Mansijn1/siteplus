@@ -49,6 +49,7 @@ def make_scan_results(
     open_graph: dict | None = None,
     internal_links: int = 5,
     external_links: int = 1,
+    internal_link_urls: list[str] | None = None,
     word_count: int = 400,
     main_sections: int = 2,
     empty_headings: int = 0,
@@ -117,6 +118,7 @@ def make_scan_results(
                 images_total=images_total, images_missing_alt=images_missing_alt,
                 meta_robots=meta_robots, open_graph=open_graph,
                 internal_links=internal_links, external_links=external_links,
+                internal_link_urls=internal_link_urls or [],
             ),
             content=ContentInfo(
                 word_count=word_count, main_sections=main_sections,

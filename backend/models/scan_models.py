@@ -118,6 +118,12 @@ class HeadingInfo(BaseModel):
     text: str
 
 
+class StructuredDataInfo(BaseModel):
+    has_json_ld: bool = False
+    json_ld_types: list[str] = Field(default_factory=list)
+    count: int = 0
+
+
 class SeoInfo(BaseModel):
     headings: list[HeadingInfo]
     heading_counts: dict[str, int]
@@ -127,6 +133,11 @@ class SeoInfo(BaseModel):
     open_graph: dict[str, str]
     internal_links: int
     external_links: int
+    # Absolute, deduped internal link URLs (capped) — Phase 4 adds this for two consumers: the
+    # multi-page crawler's page discovery, and the technical/SEO analyzers' real broken-internal
+    # -link check once other pages in the same crawl have also been scanned.
+    internal_link_urls: list[str] = Field(default_factory=list)
+    structured_data: StructuredDataInfo = Field(default_factory=StructuredDataInfo)
 
 
 class ContentInfo(BaseModel):
@@ -235,6 +246,16 @@ class TypographySignal(BaseModel):
     font_family_samples: list[str] = Field(default_factory=list)
 
 
+class ImageDetail(BaseModel):
+    src: str
+    natural_width: int | None = None
+    natural_height: int | None = None
+    rendered_width: int | None = None
+    rendered_height: int | None = None
+    format: str | None = None  # guessed from the URL's file extension — best-effort, not content-sniffed
+    loading: str | None = None  # the `loading` attribute (e.g. "lazy") — absence doesn't mean broken
+
+
 class ImageDiagnostics(BaseModel):
     available: bool
     reason: str | None = None
@@ -242,6 +263,7 @@ class ImageDiagnostics(BaseModel):
     broken_count: int = 0
     oversized_count: int = 0
     broken_examples: list[str] = Field(default_factory=list)
+    details: list[ImageDetail] = Field(default_factory=list)  # capped — see page_diagnostics.py
 
 
 class TouchTargetSignal(BaseModel):
@@ -264,6 +286,9 @@ class RobotsSitemapInfo(BaseModel):
     sitemap_declared_in_robots: bool = False
     sitemap_xml_present: bool = False
     sitemap_xml_status: int | None = None
+    # Page 4: URLs listed in the sitemap (same-domain, capped) — real page-discovery evidence
+    # for the multi-page crawler, not just a presence check.
+    sitemap_urls: list[str] = Field(default_factory=list)
 
 
 class MixedContentInfo(BaseModel):
@@ -272,19 +297,39 @@ class MixedContentInfo(BaseModel):
     insecure_resource_examples: list[str] = Field(default_factory=list)
 
 
+class LayoutSignal(BaseModel):
+    """Alignment/typography-hierarchy evidence — real computed-style/bounding-box measurements,
+    not a subjective design judgment. Added in Phase 4 to cover the UI module's "measure
+    typography hierarchy" / "analyze visual alignment" checks, which Phase 3 had marked
+    unavailable for lack of this exact evidence."""
+
+    available: bool
+    reason: str | None = None
+    heading_hierarchy_sizes_ok: bool | None = None
+    distinct_left_edges: int | None = None
+    body_font_size_px: float | None = None
+    largest_heading_font_size_px: float | None = None
+
+
 class AuditExtras(BaseModel):
     """Additive Phase 3 evidence captured during the SAME Phase 2 browser session (no second
     browser launch, no re-scan) plus two passive same-origin HTTP GETs for robots/sitemap.
     Entirely optional on `ScanResults` — Phase 2's existing contract is unaffected when this
-    is None (e.g. a scan that predates this field, or one where every sub-capture failed)."""
+    is None (e.g. a scan that predates this field, or one where every sub-capture failed).
+
+    `touch_targets_tablet` reuses the existing mobile-context page at a second viewport size
+    (a `set_viewport_size` call, not a second navigation) — real "multiple viewport" coverage
+    without a third full page load."""
 
     accessibility: AccessibilityAudit
     tls: TlsCertificateInfo
     typography: TypographySignal
     images: ImageDiagnostics
     touch_targets: TouchTargetSignal
+    touch_targets_tablet: TouchTargetSignal = TouchTargetSignal(available=False, reason="not_run")
     robots_sitemap: RobotsSitemapInfo
     mixed_content: MixedContentInfo
+    layout: LayoutSignal = LayoutSignal(available=False, reason="not_run")
 
 
 class ScanResults(BaseModel):

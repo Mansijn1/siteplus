@@ -30,10 +30,12 @@ def analyze(scan: ScanResults) -> CategoryResult:
     _check_image_alt(b, seo)
     _check_internal_linking(b, seo)
     _check_robots_sitemap(b, scan)
+    _check_structured_data(b, seo)
 
     b.unavailable(
         "broken_outbound_links", "Outbound link validity",
-        "requires_crawling_every_linked_page_not_in_scope_for_a_single_page_scan",
+        "requires_crawling_every_linked_page_not_in_scope_for_a_single_page_scan"
+        "_handled_separately_at_the_website_level_when_a_multi_page_evaluation_covers_the_target",
     )
 
     summary = (
@@ -364,4 +366,30 @@ def _check_robots_sitemap(b: CategoryBuilder, scan: ScanResults) -> None:
             expected_benefit="Improves crawl efficiency and discovery of all site pages.",
             estimated_effort=Effort.MEDIUM,
             evidence=Evidence(selector="/sitemap.xml", observed_value=rs.sitemap_xml_status),
+        )
+
+
+def _check_structured_data(b: CategoryBuilder, seo) -> None:
+    if seo.structured_data.has_json_ld:
+        b.passed(
+            "structured_data_present", "Structured data (JSON-LD) present",
+            detail=", ".join(seo.structured_data.json_ld_types) or f"{seo.structured_data.count} block(s)",
+        )
+    else:
+        b.failed(
+            "structured_data_present", "Structured data (JSON-LD) present",
+            title="No structured data (JSON-LD) found",
+            description="No <script type=\"application/ld+json\"> block was found on the page.",
+            severity=Severity.LOW,
+            priority=derive_priority(Severity.LOW),
+            impact="Structured data helps search engines understand page content precisely and can unlock rich results (ratings, breadcrumbs, FAQs, etc.) in search listings.",
+            recommendation="Add relevant JSON-LD structured data for this page's content type (e.g. Organization, Product, Article, or FAQPage schema.org types).",
+            how_to_fix=[
+                "Identify the most relevant schema.org type for this page (Organization, Product, Article, etc.).",
+                "Add a <script type=\"application/ld+json\"> block in <head> with the appropriate structured data.",
+                "Validate it with a structured-data testing tool before publishing.",
+            ],
+            expected_benefit="May unlock rich search result features and improves search engines' understanding of the page.",
+            estimated_effort=Effort.MEDIUM,
+            evidence=Evidence(selector="script[type='application/ld+json']", observed_value=None),
         )

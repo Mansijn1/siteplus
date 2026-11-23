@@ -62,6 +62,7 @@ class CategoryBuilder:
         how_to_fix: list[str],
         expected_benefit: str,
         affected_url: str | None = None,
+        documentation_url: str | None = None,
     ) -> Issue:
         """Records one failed check as both an `Issue` (the evidence-bearing finding) and a
         paired `Recommendation` (the actionable fix) — a failed check always produces exactly
@@ -73,12 +74,17 @@ class CategoryBuilder:
         self._issue_seq += 1
         issue_id = f"{self.category.upper()}-{self._issue_seq:03d}"
         resolved_url = affected_url or self.affected_url
+        # The stable check_id (e.g. "title_present"), not the per-scan sequential issue_id, is
+        # what the multi-page crawler groups recurring sitewide issues by — issue_id numbering
+        # depends on which checks happened to fail first on a given page, so it isn't stable
+        # across pages, but check_id always identifies the same underlying rule.
+        evidence_with_check_id = evidence.model_copy(update={"extra": {**evidence.extra, "check_id": check_id}})
         issue = Issue(
             issue_id=issue_id,
             category=self.category,
             title=title,
             description=description,
-            evidence=evidence,
+            evidence=evidence_with_check_id,
             affected_url=resolved_url,
             severity=severity,
             priority=priority,
@@ -92,6 +98,12 @@ class CategoryBuilder:
                 issue_id=issue_id,
                 category=self.category,
                 title=title,
+                # `description` is what was actually observed (e.g. "the page has no <title>
+                # element") — that observation IS the root cause for virtually every check this
+                # project runs, so reusing it here (rather than asking 12 analyzer files to
+                # author a second, separate root-cause string) keeps it always in sync with the
+                # evidence instead of risking the two texts drifting apart.
+                root_cause=description,
                 what_to_fix=recommendation,
                 why_it_matters=impact,
                 how_to_fix=how_to_fix,
@@ -99,6 +111,7 @@ class CategoryBuilder:
                 priority=priority,
                 estimated_effort=estimated_effort,
                 affected_url=resolved_url,
+                documentation_url=documentation_url,
             )
         )
         return issue

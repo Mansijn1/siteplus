@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Accessibility Broken Fixture</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    .low-contrast { color: #dddddd; background-color: #ffffff; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Accessibility Broken Fixture</h1>
+    <p class="low-contrast">This paragraph intentionally uses very low contrast text against its
+    background, specifically to trigger axe-core's color-contrast rule for benchmark ground truth.</p>
+    <img src="/assets/bakery.png">
+    <form>
+      <input type="text" name="search_term_not_labeled">
+      <button type="submit">Go</button>
+    </form>
+  </main>
+</body>
+</html>

@@ -4,12 +4,21 @@ parsing: no requests, no form submission, no execution of anything on the page."
 
 from __future__ import annotations
 
+import json
 import re
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
-from models.scan_models import BasicInfo, ContentInfo, HeadingInfo, PageSignalsInfo, SeoInfo, UxInfo
+from models.scan_models import (
+    BasicInfo,
+    ContentInfo,
+    HeadingInfo,
+    PageSignalsInfo,
+    SeoInfo,
+    StructuredDataInfo,
+    UxInfo,
+)
 
 _WORD_RE = re.compile(r"[A-Za-z0-9']+")
 
@@ -76,6 +85,8 @@ def extract_seo_info(html: str, final_url: str) -> SeoInfo:
 
     internal_links = 0
     external_links = 0
+    internal_link_urls: list[str] = []
+    seen_internal: set[str] = set()
     for a in soup.find_all("a", href=True):
         href = a["href"].strip()
         if not href or href.startswith("#") or href.startswith("mailto:") or href.startswith("tel:"):
@@ -83,6 +94,10 @@ def extract_seo_info(html: str, final_url: str) -> SeoInfo:
         link_host = urlparse(href).hostname
         if link_host is None or link_host == parsed_final.hostname:
             internal_links += 1
+            absolute = urljoin(final_url, href).split("#", 1)[0]
+            if absolute not in seen_internal and len(internal_link_urls) < 25:
+                seen_internal.add(absolute)
+                internal_link_urls.append(absolute)
         else:
             external_links += 1
 
@@ -95,7 +110,25 @@ def extract_seo_info(html: str, final_url: str) -> SeoInfo:
         open_graph=og_tags,
         internal_links=internal_links,
         external_links=external_links,
+        internal_link_urls=internal_link_urls,
+        structured_data=_extract_structured_data(soup),
     )
+
+
+def _extract_structured_data(soup: BeautifulSoup) -> StructuredDataInfo:
+    scripts = soup.find_all("script", attrs={"type": re.compile("^application/ld\\+json$", re.I)})
+    types: list[str] = []
+    for script in scripts:
+        try:
+            payload = json.loads(script.string or "")
+        except (ValueError, TypeError):
+            continue
+        entries = payload if isinstance(payload, list) else [payload]
+        for entry in entries:
+            if isinstance(entry, dict) and entry.get("@type"):
+                type_value = entry["@type"]
+                types.append(type_value if isinstance(type_value, str) else str(type_value))
+    return StructuredDataInfo(has_json_ld=len(scripts) > 0, json_ld_types=types[:10], count=len(scripts))
 
 
 def extract_content_info(html: str, seo: SeoInfo) -> ContentInfo:

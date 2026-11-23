@@ -43,6 +43,9 @@ export type Severity = "critical" | "high" | "medium" | "low" | "informational";
 export type Priority = "P0" | "P1" | "P2" | "P3";
 export type Effort = "low" | "medium" | "high";
 export type CheckStatus = "passed" | "failed" | "unavailable";
+export type ConfidenceLevel = "very_high" | "high" | "medium" | "low";
+export type VerificationStatus = "verified" | "needs_review" | "unverified";
+export type RecommendationBucket = "critical_fix" | "quick_win" | "long_term";
 
 export interface Evidence {
   element?: string | null;
@@ -64,12 +67,17 @@ export interface BackendIssue {
   impact: string;
   recommendation: string;
   estimated_effort: Effort;
+  confidence: number;
+  confidence_level: ConfidenceLevel;
+  verification_status: VerificationStatus;
+  evidence_source: string;
 }
 
 export interface BackendRecommendation {
   issue_id: string;
   category: string;
   title: string;
+  root_cause: string;
   what_to_fix: string;
   why_it_matters: string;
   how_to_fix: string[];
@@ -77,6 +85,8 @@ export interface BackendRecommendation {
   priority: Priority;
   estimated_effort: Effort;
   affected_url: string;
+  documentation_url?: string | null;
+  bucket: RecommendationBucket;
 }
 
 export interface BackendCheckResult {
@@ -97,6 +107,7 @@ export interface BackendCategoryResult {
   failed_count: number;
   unavailable_count: number;
   summary: string;
+  score_explanation: string;
 }
 
 export interface BackendEvaluationResult {
@@ -104,6 +115,7 @@ export interface BackendEvaluationResult {
   scan_id: string;
   submitted_url: string;
   status: "running" | "completed" | "failed";
+  scoring_config_version: string;
   overall_score: number | null;
   score_coverage_percent: number | null;
   grade: string | null;
@@ -130,4 +142,37 @@ export async function startEvaluation(scanId: string): Promise<BackendEvaluation
 
 export async function getEvaluation(evaluationId: string): Promise<BackendEvaluationResult> {
   return request<BackendEvaluationResult>(`/api/evaluation/${evaluationId}`);
+}
+
+// Shape mirrors benchmark/runner.py's report dict exactly.
+export interface BenchmarkReport {
+  generated_at: string;
+  overall: {
+    tp: number; fp: number; fn: number; tn: number;
+    precision: number | null; recall: number | null; f1: number | null;
+    false_positive_rate: number | null; false_negative_rate: number | null;
+  };
+  confidence_calibration: {
+    avg_confidence_of_true_positives: number | null;
+    avg_confidence_of_false_positives: number | null;
+    note: string;
+  };
+  evaluation_coverage: {
+    ground_truth_checks_defined: number;
+    unavailable_at_scan_time: number;
+    coverage_percent: number | null;
+  };
+  by_category: Record<string, { tp: number; fp: number; fn: number; tn: number; precision: number | null; recall: number | null; f1: number | null }>;
+  scope_note: string;
+}
+
+/** Returns null (not an error) when no benchmark has been run yet — the dashboard should show
+ * "not yet run" rather than treating that as a failure. */
+export async function getLatestBenchmark(): Promise<BenchmarkReport | null> {
+  try {
+    return await request<BenchmarkReport>("/api/benchmark/latest");
+  } catch (err) {
+    if (err instanceof EvaluationApiError && err.code === "no_benchmark_results") return null;
+    throw err;
+  }
 }

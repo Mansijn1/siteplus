@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from urllib.parse import urlparse
 
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Route, TimeoutError as PlaywrightTimeoutError, async_playwright
@@ -18,6 +19,7 @@ from models.scan_models import (
     AuditExtras,
     FailedRequest,
     ImageDiagnostics,
+    LayoutSignal,
     LoadTiming,
     MixedContentInfo,
     ResponseInfo,
@@ -29,7 +31,13 @@ from models.scan_models import (
 )
 from scanner.accessibility_audit import run_accessibility_audit
 from scanner.network_inspector import NetworkInspector
-from scanner.page_diagnostics import detect_mixed_content, run_image_diagnostics, run_touch_target_signal, run_typography_signal
+from scanner.page_diagnostics import (
+    detect_mixed_content,
+    run_image_diagnostics,
+    run_layout_signal,
+    run_touch_target_signal,
+    run_typography_signal,
+)
 from scanner.screenshot import public_screenshot_url, save_screenshot
 from scanner.site_probe import probe_robots_and_sitemap
 from security.url_validation import URLValidationError, is_request_allowed
@@ -59,15 +67,26 @@ class NavigationResult:
     )
     images: ImageDiagnostics = field(default_factory=lambda: ImageDiagnostics(available=False, reason="not_run"))
     mixed_content: MixedContentInfo = field(default_factory=lambda: MixedContentInfo(available=False))
+    layout: LayoutSignal = field(default_factory=lambda: LayoutSignal(available=False, reason="not_run"))
 
 
-async def _guard_navigation(route: Route) -> None:
+async def _guard_navigation(route: Route, *, allow_loopback_for_benchmark: bool = False) -> None:
     """Route handler applied to every main-frame document request (initial nav + every
     redirect hop) so a target that redirects to an internal address after passing the initial
-    check is still blocked before Chromium ever connects to it."""
+    check is still blocked before Chromium ever connects to it.
+
+    `allow_loopback_for_benchmark` exists for exactly one caller: benchmark/runner.py, which
+    deliberately scans its own local fixture server (127.0.0.1) to compute precision/recall
+    against hand-verified ground truth. It is never True on any path reachable from a public API
+    route — scan_service.py and website_evaluation_service.py never pass it — so it does not
+    weaken SSRF protection for any user-submitted URL."""
     request = route.request
     if request.resource_type == "document":
-        if not is_request_allowed(request.url):
+        allowed = is_request_allowed(request.url)
+        if not allowed and allow_loopback_for_benchmark:
+            hostname = urlparse(request.url).hostname
+            allowed = hostname in ("127.0.0.1", "localhost", "::1")
+        if not allowed:
             await route.abort("blockedbyclient")
             return
     await route.continue_()
@@ -86,11 +105,14 @@ def _redirect_chain(response) -> list[str]:
 
 
 async def run_browser_scan(
-    scan_id: str, url: str
+    scan_id: str, url: str, *, allow_loopback_for_benchmark: bool = False
 ) -> tuple[NavigationResult, dict[str, ScreenshotResult], AuditExtras]:
     screenshots: dict[str, ScreenshotResult] = {}
     navigation_result: NavigationResult | None = None
-    touch_targets = TouchTargetSignal(available=False, reason="not_run")
+    mobile_result = MobileScanResult(
+        touch_targets=TouchTargetSignal(available=False, reason="not_run"),
+        touch_targets_tablet=TouchTargetSignal(available=False, reason="not_run"),
+    )
 
     try:
         async with async_playwright() as p:
@@ -99,8 +121,12 @@ async def run_browser_scan(
                 args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
             )
             try:
-                navigation_result = await _scan_desktop(browser, scan_id, url, screenshots)
-                touch_targets = await _scan_mobile(browser, scan_id, url, screenshots)
+                navigation_result = await _scan_desktop(
+                    browser, scan_id, url, screenshots, allow_loopback_for_benchmark=allow_loopback_for_benchmark
+                )
+                mobile_result = await _scan_mobile(
+                    browser, scan_id, url, screenshots, allow_loopback_for_benchmark=allow_loopback_for_benchmark
+                )
             finally:
                 await browser.close()
     except PlaywrightError as exc:
@@ -119,21 +145,29 @@ async def run_browser_scan(
         tls=navigation_result.tls,
         typography=navigation_result.typography,
         images=navigation_result.images,
-        touch_targets=touch_targets,
+        touch_targets=mobile_result.touch_targets,
+        touch_targets_tablet=mobile_result.touch_targets_tablet,
         robots_sitemap=robots_sitemap,
         mixed_content=navigation_result.mixed_content,
+        layout=navigation_result.layout,
     )
 
     return navigation_result, screenshots, audit_extras
 
 
-async def _scan_desktop(browser, scan_id: str, url: str, screenshots: dict[str, ScreenshotResult]) -> NavigationResult:
+async def _scan_desktop(
+    browser, scan_id: str, url: str, screenshots: dict[str, ScreenshotResult], *, allow_loopback_for_benchmark: bool = False
+) -> NavigationResult:
     width, height = settings.desktop_viewport
     context = await browser.new_context(viewport={"width": width, "height": height})
     inspector = NetworkInspector()
     page = await context.new_page()
     inspector.attach(page)
-    await page.route("**/*", _guard_navigation)
+
+    async def _route_handler(route: Route) -> None:
+        await _guard_navigation(route, allow_loopback_for_benchmark=allow_loopback_for_benchmark)
+
+    await page.route("**/*", _route_handler)
 
     start = time.monotonic()
     try:
@@ -227,6 +261,7 @@ async def _scan_desktop(browser, scan_id: str, url: str, screenshots: dict[str, 
     accessibility = await run_accessibility_audit(page)
     typography = await run_typography_signal(page)
     images = await run_image_diagnostics(page)
+    layout = await run_layout_signal(page)
     mixed_content = detect_mixed_content(html, final_url)
 
     result = NavigationResult(
@@ -240,6 +275,7 @@ async def _scan_desktop(browser, scan_id: str, url: str, screenshots: dict[str, 
         tls=tls,
         typography=typography,
         images=images,
+        layout=layout,
         mixed_content=mixed_content,
     )
 
@@ -247,9 +283,15 @@ async def _scan_desktop(browser, scan_id: str, url: str, screenshots: dict[str, 
     return result
 
 
+@dataclass
+class MobileScanResult:
+    touch_targets: TouchTargetSignal
+    touch_targets_tablet: TouchTargetSignal
+
+
 async def _scan_mobile(
-    browser, scan_id: str, url: str, screenshots: dict[str, ScreenshotResult]
-) -> TouchTargetSignal:
+    browser, scan_id: str, url: str, screenshots: dict[str, ScreenshotResult], *, allow_loopback_for_benchmark: bool = False
+) -> MobileScanResult:
     width, height = settings.mobile_viewport
     context = await browser.new_context(
         viewport={"width": width, "height": height},
@@ -261,9 +303,14 @@ async def _scan_mobile(
         ),
     )
     page = await context.new_page()
-    await page.route("**/*", _guard_navigation)
+
+    async def _route_handler(route: Route) -> None:
+        await _guard_navigation(route, allow_loopback_for_benchmark=allow_loopback_for_benchmark)
+
+    await page.route("**/*", _route_handler)
 
     touch_targets = TouchTargetSignal(available=False, reason="navigation_failed")
+    touch_targets_tablet = TouchTargetSignal(available=False, reason="navigation_failed")
     try:
         await page.goto(url, wait_until="load", timeout=settings.navigation_timeout_ms)
         screenshot_bytes = await page.screenshot(type="png")
@@ -273,9 +320,18 @@ async def _scan_mobile(
             width=width, height=height,
         )
         touch_targets = await run_touch_target_signal(page)
+
+        # Tablet re-measurement reuses this same loaded page via a viewport resize — a relayout,
+        # not a second navigation — so "multiple viewport sizes" coverage costs no extra request.
+        tablet_width, tablet_height = settings.tablet_viewport
+        try:
+            await page.set_viewport_size({"width": tablet_width, "height": tablet_height})
+            touch_targets_tablet = await run_touch_target_signal(page)
+        except PlaywrightError as exc:
+            touch_targets_tablet = TouchTargetSignal(available=False, reason=f"viewport_resize_failed: {exc}"[:300])
     except (PlaywrightError, PlaywrightTimeoutError) as exc:
         screenshots["mobile"] = ScreenshotResult(available=False, reason=str(exc)[:300])
     finally:
         await context.close()
 
-    return touch_targets
+    return MobileScanResult(touch_targets=touch_targets, touch_targets_tablet=touch_targets_tablet)

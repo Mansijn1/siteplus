@@ -7,7 +7,15 @@ produced — keeping scoring rules separate from analyzer logic, as the spec req
 
 from __future__ import annotations
 
-from models.evaluation_models import CATEGORY_WEIGHTS, CategoryId, CategoryResult
+from models.evaluation_models import CATEGORY_WEIGHTS, CategoryId, CategoryResult, CheckStatus
+
+# Bump whenever CATEGORY_WEIGHTS, the renormalization formula, or confidence_engine's source
+# bands change in a way that makes an older evaluation's score not directly comparable to a new
+# one. 1.0.0 is Phase 4's baseline — no scoring changes have shipped past it yet. See Stage F's
+# calibration notes (services/calibration.py) for the process before this number moves: the spec
+# is explicit that scoring weights must not change automatically in production without the
+# benchmark framework (Stage H) validating the change first.
+SCORING_CONFIG_VERSION = "1.0.0"
 
 
 def calculate_overall_score(categories: dict[str, CategoryResult]) -> tuple[float | None, float]:
@@ -55,3 +63,31 @@ def grade_label(score: float) -> str:
 
 def validate_category_weights() -> bool:
     return sum(CATEGORY_WEIGHTS.values()) == 100
+
+
+def explain_category_score(result: CategoryResult) -> str:
+    """A short, literal statement of what produced this score — generated mechanically from the
+    checks list, not written by the analyzer, so the explanation can never drift from the
+    arithmetic it's describing. Satisfies "every category should explain what was tested, what
+    passed, what failed, what could not be tested, and why it received its score"."""
+    total_performed = result.passed_count + result.failed_count
+    if result.score is None:
+        return (
+            f"No score: all {result.unavailable_count} check(s) attempted for this category "
+            "could not be performed on this scan (see each check's reason), so there is no "
+            "evidence to score against."
+        )
+
+    unavailable_note = (
+        f" ({result.unavailable_count} additional check(s) could not be performed and were "
+        "excluded from this ratio rather than counted as failing.)"
+        if result.unavailable_count > 0
+        else ""
+    )
+    failing_labels = [c.label for c in result.checks if c.status == CheckStatus.FAILED][:3]
+    failing_note = f" Failing: {', '.join(failing_labels)}{'…' if result.failed_count > 3 else ''}." if failing_labels else ""
+
+    return (
+        f"Score {result.score}/100 = {result.passed_count} of {total_performed} performed "
+        f"check(s) passed.{unavailable_note}{failing_note}"
+    )

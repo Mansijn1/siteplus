@@ -13,19 +13,33 @@ import {
   type Severity,
   getCategoryAnalysis as getDemoCategoryAnalysis,
 } from "@/data/demo-results";
-import type { BackendEvaluationResult, Priority, Effort } from "./evaluation-api";
+import type {
+  BackendEvaluationResult,
+  Priority,
+  Effort,
+  ConfidenceLevel,
+  VerificationStatus,
+  RecommendationBucket,
+  Evidence,
+} from "./evaluation-api";
 
 /**
  * A superset of the existing demo `CategoryIssue`/`CategoryRecommendation` shapes — every field
- * the current components already render, plus the richer fields the Phase 3 spec explicitly
- * asks to be shown (priority, affected URL, estimated effort). Demo data simply omits the
- * extra fields; real data populates them. Components render the extras only when present, so
- * neither data source needs a special case in the JSX beyond an optional check.
+ * the current components already render, plus the richer fields the Phase 3/4 spec explicitly
+ * asks to be shown (priority, affected URL, estimated effort, confidence, verification status,
+ * root cause, documentation link, quick-win/critical-fix/long-term bucket). Demo data simply
+ * omits the extra fields; real data populates them. Components render the extras only when
+ * present, so neither data source needs a special case in the JSX beyond an optional check.
  */
 export interface AdaptedIssue extends CategoryIssue {
   issueId?: string;
   priority?: Priority;
   affectedUrl?: string;
+  confidence?: number;
+  confidenceLevel?: ConfidenceLevel;
+  verificationStatus?: VerificationStatus;
+  evidenceSource?: string;
+  evidenceDetail?: Evidence;
 }
 
 export interface AdaptedRecommendation extends CategoryRecommendation {
@@ -33,6 +47,9 @@ export interface AdaptedRecommendation extends CategoryRecommendation {
   priority?: Priority;
   estimatedEffort?: Effort;
   affectedUrl?: string;
+  rootCause?: string;
+  documentationUrl?: string | null;
+  bucket?: RecommendationBucket;
 }
 
 export interface AdaptedCategoryAnalysis extends Omit<CategoryAnalysis, "issues" | "recommendations"> {
@@ -156,6 +173,11 @@ export function adaptEvaluation(evaluation: BackendEvaluationResult): Evaluation
         issueId: issue.issue_id,
         priority: issue.priority,
         affectedUrl: issue.affected_url,
+        confidence: issue.confidence,
+        confidenceLevel: issue.confidence_level,
+        verificationStatus: issue.verification_status,
+        evidenceSource: issue.evidence_source,
+        evidenceDetail: issue.evidence,
       })),
       recommendations: result.recommendations.map((rec) => ({
         title: rec.title,
@@ -166,6 +188,9 @@ export function adaptEvaluation(evaluation: BackendEvaluationResult): Evaluation
         priority: rec.priority,
         estimatedEffort: rec.estimated_effort,
         affectedUrl: rec.affected_url,
+        rootCause: rec.root_cause,
+        documentationUrl: rec.documentation_url,
+        bucket: rec.bucket,
       })),
     };
   }
