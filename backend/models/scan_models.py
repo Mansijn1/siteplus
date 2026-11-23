@@ -145,6 +145,10 @@ class ContentInfo(BaseModel):
     main_sections: int
     empty_headings: int
     duplicate_headings: list[str]
+    # First ~1500 chars of visible body text (same extraction pass as word_count, no new
+    # capture step) — real content for anything that needs to judge relevance/quality rather
+    # than just count words, e.g. services/llm_seo_agent.py.
+    content_excerpt: str = ""
 
 
 class TechnicalInfo(BaseModel):

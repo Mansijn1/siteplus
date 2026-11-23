@@ -27,6 +27,7 @@ from services.analyzers import (
     ui_analyzer,
     ux_analyzer,
 )
+from services.llm_seo_agent import analyze_seo_with_llm
 from services.validation_engine import validate_category_result
 
 _ANALYZERS = {
@@ -48,6 +49,29 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _merge_category_results(primary: CategoryResult, additional: CategoryResult) -> CategoryResult:
+    """Appends an additional analyzer's checks/issues/recommendations onto an already-built
+    CategoryResult and recomputes its score with the same passed/(passed+failed) formula
+    CategoryBuilder.build() uses — used to layer the optional LLM SEO agent's findings onto the
+    rule-based seo_analyzer's result without the two analyzers needing to know about each other."""
+    passed = primary.passed_count + additional.passed_count
+    failed = primary.failed_count + additional.failed_count
+    unavailable = primary.unavailable_count + additional.unavailable_count
+    denom = passed + failed
+    score = round((passed / denom) * 100, 1) if denom > 0 else None
+    return primary.model_copy(
+        update={
+            "checks": primary.checks + additional.checks,
+            "issues": primary.issues + additional.issues,
+            "recommendations": primary.recommendations + additional.recommendations,
+            "passed_count": passed,
+            "failed_count": failed,
+            "unavailable_count": unavailable,
+            "score": score,
+        }
+    )
+
+
 async def run_evaluation(evaluation_id: str, scan: ScanResults, started_at: str) -> EvaluationResult:
     category_results: dict[str, CategoryResult] = {}
 
@@ -55,9 +79,17 @@ async def run_evaluation(evaluation_id: str, scan: ScanResults, started_at: str)
         *[asyncio.to_thread(analyze_fn, scan) for analyze_fn in _ANALYZERS.values()]
     )
     for category_id, result in zip(_ANALYZERS.keys(), results, strict=True):
-        validated = validate_category_result(result)
-        category_results[category_id] = validated.model_copy(
-            update={"score_explanation": scoring_engine.explain_category_score(validated)}
+        category_results[category_id] = validate_category_result(result)
+
+    # Optional LLM-assisted SEO judgment, layered on top of the rule-based seo_analyzer result.
+    # Genuinely async (network I/O), unlike the 12 analyzers above — and a no-op, zero-network-
+    # call pass-through when no OPENAI_API_KEY is configured (see llm_seo_agent.py).
+    llm_seo_result = await analyze_seo_with_llm(scan)
+    category_results["seo"] = _merge_category_results(category_results["seo"], llm_seo_result)
+
+    for category_id, result in category_results.items():
+        category_results[category_id] = result.model_copy(
+            update={"score_explanation": scoring_engine.explain_category_score(result)}
         )
 
     overall_score, coverage = scoring_engine.calculate_overall_score(category_results)

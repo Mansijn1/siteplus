@@ -58,6 +58,15 @@ class Settings(BaseSettings):
     axe_js_path: Path = BACKEND_ROOT / "vendor" / "axe.min.js"
     site_probe_timeout_s: float = 8.0
 
+    # Optional LLM-assisted SEO judgment (title/content quality, keyword coverage) — strictly
+    # additive to the rule-based seo_analyzer.py, never a replacement for it. Activates only
+    # when an API key is actually present; with none set (the default, and always true in CI/
+    # the benchmark) these checks report unavailable with zero network calls, exactly like
+    # Lighthouse's "cli not found" path. Set OPENAI_API_KEY in the environment to enable.
+    openai_api_key: str | None = None
+    llm_seo_agent_model: str = "gpt-4o-mini"
+    llm_seo_agent_timeout_s: float = 20.0
+
 
 def _detect_chromium_path() -> str | None:
     """Asks Playwright directly where it installed Chromium, rather than guessing a path and

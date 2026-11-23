@@ -27,6 +27,10 @@ from models.evaluation_models import ConfidenceLevel, Evidence, Issue, Verificat
 #     debatable, which is exactly why it's lower confidence rather than lower severity.
 #   structural_proxy: an indirect signal standing in for something we can't directly observe
 #     (e.g. a JS console error as evidence of "broken interaction").
+#   llm_assessment: a qualitative judgment from an LLM given real page evidence (title, meta
+#     description, headings, a content excerpt) — grounded in real data, but inherently
+#     subjective and not independently reproducible the way a deterministic rule is, hence the
+#     lowest tier here and always `needs_review` below, never `verified`.
 _SOURCE_CONFIDENCE: dict[str, float] = {
     "rendered_dom": 0.97,
     "http_response": 0.96,
@@ -34,6 +38,7 @@ _SOURCE_CONFIDENCE: dict[str, float] = {
     "external_tool": 0.90,
     "heuristic_threshold": 0.65,
     "structural_proxy": 0.55,
+    "llm_assessment": 0.55,
 }
 
 _CHECK_ID_SOURCE: dict[str, str] = {
@@ -111,6 +116,7 @@ _PREFIX_SOURCE: list[tuple[str, str]] = [
     ("axe:", "external_tool"),
     ("metric:", "external_tool"),
     ("header:", "http_response"),
+    ("llm:", "llm_assessment"),
 ]
 
 
@@ -154,7 +160,7 @@ def verify_and_score(issue: Issue) -> Issue:
         # than trusted at the source's normal level.
         confidence = min(confidence, 0.6)
         verification = VerificationStatus.NEEDS_REVIEW
-    elif source in ("heuristic_threshold", "structural_proxy"):
+    elif source in ("heuristic_threshold", "structural_proxy", "llm_assessment"):
         verification = VerificationStatus.NEEDS_REVIEW
     else:
         verification = VerificationStatus.VERIFIED

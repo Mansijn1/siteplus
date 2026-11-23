@@ -159,6 +159,29 @@ succeeds (the degrade-gracefully code path exists and was exercised indirectly w
 real Windows `npx` resolution bug and a Lighthouse desktop-preset bug during development, but
 wasn't separately tested against a live site that reliably fails only Lighthouse).
 
+## Optional: LLM-assisted SEO judgment
+
+`services/llm_seo_agent.py` adds a qualitative layer on top of the rule-based SEO analyzer —
+whether the title/meta description actually read as compelling and specific (not just the right
+length), whether the visible content substantively covers what the title/headings promise, and
+what closely-related topics seem to be missing. It's strictly additive: the rule-based SEO
+checks keep working exactly as before with or without this enabled, and the two never contradict
+each other since the agent only adds new `llm:*` checks alongside them.
+
+Disabled by default. To enable:
+
+```bash
+pip install -r requirements-llm.txt   # adds the openai package on top of requirements.txt
+# set OPENAI_API_KEY in .env or the environment
+```
+
+With no key set, these checks report `available: false` with zero network calls — the same
+"degrade honestly, never fabricate" pattern as every other optional capability here. Every
+judgment is grounded in real evidence handed to the model (title, meta description, headings, an
+excerpt of the page's visible text) and tagged at a lower confidence tier
+(`evidence_source: "llm_assessment"`, always `verification_status: "needs_review"`) than the
+deterministic rule-based checks — see `services/confidence_engine.py`'s source-confidence table.
+
 ## Known limitations
 
 - **In-memory scan store** — restarting the process loses all scan records (not results files

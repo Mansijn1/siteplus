@@ -138,6 +138,7 @@ def extract_content_info(html: str, seo: SeoInfo) -> ContentInfo:
 
     visible_text = soup.get_text(separator=" ")
     word_count = len(_WORD_RE.findall(visible_text))
+    content_excerpt = re.sub(r"\s+", " ", visible_text).strip()[:1500]
 
     main_sections = len(soup.find_all(["main", "article", "section"])) or len(
         BeautifulSoup(html, "html.parser").find_all(["section", "article"])
@@ -156,6 +157,7 @@ def extract_content_info(html: str, seo: SeoInfo) -> ContentInfo:
         main_sections=main_sections,
         empty_headings=empty_headings,
         duplicate_headings=duplicate_headings[:20],
+        content_excerpt=content_excerpt,
     )
 
 
