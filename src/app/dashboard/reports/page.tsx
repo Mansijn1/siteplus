@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Download } from "lucide-react";
 import { EVALUATION_CATEGORIES } from "@/lib/categories";
 import { getGradeInfo } from "@/lib/scoring";
 import { useEvaluationData } from "@/components/dashboard/evaluation-data-provider";
 import { ScoreGauge } from "@/components/dashboard/score-gauge";
 import { GradeChip } from "@/components/dashboard/grade-chip";
 import { SeverityBadge } from "@/components/dashboard/severity-badge";
+import { Button } from "@/components/ui/button";
 import { SEVERITY_ORDER, SEVERITY_LABEL } from "@/data/demo-results";
 import { getLatestBenchmark, type BenchmarkReport, type ConfidenceLevel } from "@/lib/evaluation-api";
 
@@ -30,6 +32,37 @@ function useBenchmarkReport() {
   return report;
 }
 
+/** Browsers hide a closed <details>'s content at the UA level — CSS alone can't reliably
+ * reveal it in print across browsers, so every evidence block is force-opened right before
+ * printing (and restored to however the reader had it after), via the native print events. */
+function usePrintExpandsDetails(containerRef: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const previouslyOpen = new Set<HTMLDetailsElement>();
+    const handleBeforePrint = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      container.querySelectorAll("details").forEach((el) => {
+        if (el.open) previouslyOpen.add(el);
+        el.open = true;
+      });
+    };
+    const handleAfterPrint = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      container.querySelectorAll("details").forEach((el) => {
+        el.open = previouslyOpen.has(el);
+      });
+      previouslyOpen.clear();
+    };
+    window.addEventListener("beforeprint", handleBeforePrint);
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => {
+      window.removeEventListener("beforeprint", handleBeforePrint);
+      window.removeEventListener("afterprint", handleAfterPrint);
+    };
+  }, [containerRef]);
+}
+
 export default function ReportsPage() {
   const { data } = useEvaluationData();
   const benchmark = useBenchmarkReport();
@@ -49,13 +82,36 @@ export default function ReportsPage() {
   const needsReviewCount = allIssues.filter((i) => i.verificationStatus === "needs_review").length;
   const hasConfidenceData = data.isReal && allIssues.some((i) => i.confidenceLevel);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  usePrintExpandsDetails(containerRef);
+  const generatedAt = useGeneratedTimestamp();
+
   return (
-    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6 lg:py-10">
-      <div>
-        <h1 className="font-display text-2xl font-semibold tracking-[-0.01em]">Reports</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          A complete, printable-style summary of this evaluation — category breakdown, every detected issue, and every recommendation.
-        </p>
+    <div ref={containerRef} className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6 lg:py-10">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-semibold tracking-[-0.01em]">Reports</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            A complete, printable summary of this evaluation — category breakdown, every detected
+            issue with its evidence, and every recommendation.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="no-print shrink-0 gap-2"
+          onClick={() => window.print()}
+        >
+          <Download className="size-3.5" />
+          Download Report
+        </Button>
+      </div>
+
+      {/* Report header — only meaningful once printed/exported; invisible in the live dashboard */}
+      <div className="hidden border-b border-foreground/20 pb-4 font-mono text-xs text-muted-foreground print:block">
+        <p className="text-base font-semibold text-foreground">Website Evaluation Report</p>
+        <p className="mt-1">{data.websiteUrl}</p>
+        <p>Generated {generatedAt}</p>
       </div>
 
       {/* Summary */}
@@ -109,7 +165,7 @@ export default function ReportsPage() {
 
       {/* Benchmark accuracy — a separate, system-wide measurement, never a per-scan number */}
       {benchmark !== "loading" && benchmark !== null && (
-        <section>
+        <section className="no-print">
           <h2 className="font-display text-lg font-semibold tracking-[-0.01em]">Accuracy & Coverage (Benchmark)</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Measured once against a fixed set of known-defect test pages — a property of the detection engine
@@ -137,7 +193,7 @@ export default function ReportsPage() {
         </section>
       )}
       {benchmark === null && (
-        <section className="rounded-lg border border-dashed border-foreground/20 p-4 text-xs text-muted-foreground">
+        <section className="no-print rounded-lg border border-dashed border-foreground/20 p-4 text-xs text-muted-foreground">
           No benchmark has been run yet in this backend environment.
         </section>
       )}
@@ -176,7 +232,7 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      {/* Issue details, grouped by severity */}
+      {/* Issue details, grouped by severity, with full evidence */}
       <section>
         <h2 className="font-display text-lg font-semibold tracking-[-0.01em]">Issue Details</h2>
         <div className="mt-3 space-y-6">
@@ -200,9 +256,42 @@ export default function ReportsPage() {
                               {issue.priority}
                             </span>
                           )}
+                          {issue.confidenceLevel && (
+                            <span
+                              className={`font-mono text-[10px] uppercase tracking-[0.08em] ${
+                                issue.verificationStatus === "needs_review" ? "text-flag" : "text-pass"
+                              }`}
+                            >
+                              {issue.confidenceLevel.replace("_", " ")} confidence
+                            </span>
+                          )}
                         </div>
                         <p className="mt-1.5 text-sm font-medium text-foreground/90">{issue.title}</p>
                         <p className="mt-1 text-sm text-muted-foreground">{issue.explanation}</p>
+                        {issue.affectedUrl && (
+                          <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{issue.affectedUrl}</p>
+                        )}
+                        {issue.evidenceDetail && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
+                              Evidence
+                            </summary>
+                            <dl className="mt-2 space-y-1 rounded-sm bg-secondary/40 p-3 font-mono text-xs text-foreground/80">
+                              {issue.evidenceDetail.selector && (
+                                <div><dt className="inline text-muted-foreground">selector: </dt><dd className="inline break-all">{issue.evidenceDetail.selector}</dd></div>
+                              )}
+                              {issue.evidenceDetail.observed_value !== undefined && issue.evidenceDetail.observed_value !== null && (
+                                <div><dt className="inline text-muted-foreground">observed: </dt><dd className="inline break-all">{JSON.stringify(issue.evidenceDetail.observed_value)}</dd></div>
+                              )}
+                              {issue.evidenceDetail.expected_value !== undefined && issue.evidenceDetail.expected_value !== null && (
+                                <div><dt className="inline text-muted-foreground">expected: </dt><dd className="inline break-all">{JSON.stringify(issue.evidenceDetail.expected_value)}</dd></div>
+                              )}
+                              {issue.evidenceSource && (
+                                <div><dt className="inline text-muted-foreground">source: </dt><dd className="inline">{issue.evidenceSource}</dd></div>
+                              )}
+                            </dl>
+                          </details>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -234,9 +323,23 @@ export default function ReportsPage() {
                       {rec.estimatedEffort} effort
                     </span>
                   )}
+                  {rec.bucket && (
+                    <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-flag">
+                      {rec.bucket.replace("_", " ")}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1.5 text-sm font-medium text-foreground/90">{rec.title}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{rec.how}</p>
+                {rec.rootCause && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground/80">Root cause — </span>
+                    {rec.rootCause}
+                  </p>
+                )}
+                <p className="mt-1 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground/80">Fix — </span>
+                  {rec.how}
+                </p>
               </div>
             ))
           )}
@@ -244,4 +347,15 @@ export default function ReportsPage() {
       </section>
     </div>
   );
+}
+
+function useGeneratedTimestamp(): string {
+  // Resolved client-only (not available during server render) — a static fallback avoids a
+  // hydration mismatch, and the real timestamp is only meaningful at the moment of download.
+  const [timestamp, setTimestamp] = useState("—");
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resolves a client-only Date once on mount
+    setTimestamp(new Date().toLocaleString());
+  }, []);
+  return timestamp;
 }

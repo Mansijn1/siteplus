@@ -46,7 +46,7 @@ function ShellBody({
 
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="hidden w-64 shrink-0 border-r border-border bg-secondary/30 lg:flex lg:flex-col">
+      <aside className="no-print hidden w-64 shrink-0 border-r border-border bg-secondary/30 lg:flex lg:flex-col">
         <div className="flex h-16 items-center px-5">
           <Link href="/">
             <Wordmark />
@@ -63,7 +63,7 @@ function ShellBody({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-background/95 px-4 backdrop-blur-sm sm:px-6">
+        <header className="no-print sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-background/95 px-4 backdrop-blur-sm sm:px-6">
           <Button
             variant="ghost"
             size="icon"

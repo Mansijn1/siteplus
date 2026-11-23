@@ -163,3 +163,21 @@
     background-color: var(--critical);
   }
 }
+
+/* Printable reports (dashboard/reports) — hide app chrome and let content reflow for paper.
+   <details> evidence blocks are force-opened via JS on `beforeprint` (CSS alone can't reliably
+   reveal closed <details> content across browsers), see src/app/dashboard/reports/page.tsx. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  main {
+    overflow: visible !important;
+  }
+  details {
+    break-inside: avoid;
+  }
+}
